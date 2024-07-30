@@ -1,0 +1,46 @@
+{
+  "date_created": "April 6, 2022",
+  "name": "Sanctuary of the Unseen Forest",
+  "description": "Sanctuary of the Unseen Forest is a large-scale video installation by Marshmallow Laser Feast.",
+  "tree_geolocation": "Ceiba Pentandra: Leticia, Amazonas, Colombia  (4°02'06.8 \"S 70°04'44.1\"W)",
+  "image": "ipfs://bafybeigvjs4uq7rffmwlebfdb3wghap62xk342w3ne7c6ejxpnt5tmohue",
+  "medium": "mp4, sound",
+  "length": "4:00 minutes",
+  "edition": "#2",
+  "synopsis": "Sanctuary of the Unseen Forest is a large-scale video installation that creates a moment of awe that occurs when we embrace the presence of a majestic being, a giant Ceiba Pentandra from the Colombian Amazon. The artwork becomes a sanctuary, a place to reflect and contemplate our place within the wider systems of nature.",
+  "artist_statement": "Sanctuary of the Unseen Forest is a large-scale video installation that creates a moment of awe, felt  when we embrace the presence of a majestic being, a giant Ceiba Pentandra from the Colombian Amazon. The artwork promotes radical thinking on a new ecology in the age of the Anthropocene.\\n\\nThe project offers a shift to our daily perception; \"as the victims of plant blindness, we are simply unable to notice plant kingdom’s liveliness, they are so different from us that we have to invent new ways of seeing and apprehending them\"\".*\\n\\nSanctuary of the Unseen Forest  seeks to foster a sense of belonging to a more-than-human world. We are intimately connected with the trees, they can be seen as an extension of our lungs in some ways. The oxygen they exhale flows into our tree-like lungs, flowing from our heart centre outward, through fractal branching arteries to feed every cell in our body.\\As we peer through the layers of the tree, we uncover the vibrancy of the life that is flowing through and beyond its body. The flow of nutrients in its phloem pulse to your heartbeat and reverberate through the room. This pulsing draws you in on a journey from crown to the roots, climaxing in rivers of carbon in the soil. Here we meet the woven mycelial bridge between land and the sky: in this network of mycorrhizal fungi we see that no self is bounded – we are all porous, enmeshed and entangled.\\n\\nIn this open way we may seek to live in the world, through a deep and wordless understanding of the roles that we play., The space becomes a sanctuary, a place to reflect and contemplate our place within the wider systems of nature.\\n\\nMarshmallow Laser Feast, 2022\\n\\n*Radical Botany - N. Meeker, A. Szabari",
+  "the_ceiba_pentandra_and_the_amazon_rainforest": "The Ceiba Pentandra tree's volumetric data, field recordings and ecological surveys were conducted by the MLF team in 2020-2021 (4°02'06.8 \"S 70°04'44.1 \"W). The data collection is part of our ongoing digital preservation process for endangered ecosystems and the species that inhabit these fragile biomes.\\n\\nThe Ceiba Pentandra is an emergent tree of the tropical rainforests and can grow to a height of 150 feet or more. These emergent trees rise above the canopy of the rainforest and provide a home for plants who are dependent on sunlight. Their branches provide a habitat for countless epiphytes, which provide food and shelter for many types of insects and animals.\\n\\nRainforests, like the rest of the natural environment, are part of the planet's life support system; an invisible world of interconnected systems and cycles that we all depend on, providing fresh air, clean water, fertile soil, nutritious food, rich biodiversity, a stable climate and a natural recycling system. If these systems and cycles are threatened, so are we.\\n\\nOur collective future depends on us understanding our interconnectedness to the natural world, and for that we need to explore the world beyond our human senses.\\nBringing the invisible into view and exploring the symbiosis of everything can transform our understanding of the world – and how we interact with it.",
+  "credits:": "Concept by Marshmallow Laser Feast\\n\\nIn collaboration with James Bulley & Andres Roberts\\n\\nDirected by Ersin Han Ersin, Barnaby Steel, Robin McNicholas\\n\\nExecutive Producer: Mike Jones\\n\\nExecutive Producer: Eleanor Whitley\\n\\nExecutive Producer: Jonathan May\\n\\nSenior Producer: Carolina Vallejo\\n\\nSenior Producer: Martin Jowers\\n\\nProducer: Oriana Neidecker\\n\\nProducer: Emma Hamilton\\n\\nProducer: Andrew Roberts\\n\\nTechnical Producer: Derek Rae\\n\\nTouring Technician: Andrew Robinson\\n\\nHead of Technology: Mike McKellar\\n\\nBackend Engineer: Lucas Moskun\\n\\nTechnical Artist: Quentin Corker-Marin\\n\\nTechnical Artist: Lewis Saunders\\n\\nGraphics Programmer: Sebastian Monroy\\n\\nGames Engine Generalist: Nils Johannesson\\n\\nGames Engine Programmer: Stephen Henderson\\n\\nHead of Finance: Matthew Dale\\n\\nStudio Manager: Sarah Gamper Marconi\\n\\nStudio Technician: Amy Johnson\\n\\nFinance & Operations Coordinator: Amin Noor\\n\\nJunior Designer & Interactive Systems Apprentice: Joy Evelyn Wilson\\n\\nSound Engineer: Simon Hendry\\n\\nSound Design: James Bulley",
+  "previous_editions": {
+    "1": {
+      "mint_tx":"0x0be58e52241742c8b2d0dd95f7e296268a9e818d42e61f473b6608bf2fe06313",
+      "metadata_uri":"ipfs://bafkreigsz2goujxz6tr7ear6igmo3ig2zdwyyapw2ntwt645byzqfw7h6i"
+    }
+  },
+  "thumbprints": {
+    "video": {
+      "0214_Barbican_Sanctuary_ceiba_comp_v038_UHD_HAP.mov": "d65e7a2dd68a7434a95d83f8b61ea098",
+      "0214_Barbican_Sanctuary_ceiba_comp_v042_UHD_HAP.mov": "768b91bff0192570a50a3f99ea93ac01"
+    },
+    "audio": {
+      "CHANNEL_NUMBERS_2022_02_26_MLF_SANCTUARY_Speaker_Positioning_Portrait_Pg1_v3.pdf": "e492ed5fb587a3a572ec661cb471546c",
+      "2022-08-18 MLF-SANCTUARY-LANDSCAPE - Speaker Positioning - Landscape v3 FINAL TOURING EDITION.pdf": "ed1c05b73fb9438f964375500bb9d402",
+      "2022-08-25 THE SANCTUARY - Our Time on Earth Touring Version - Landscape v13 - Stereo Binaural Mix KU100.mp3": "fed693ce7f5a84436a9ea9f209159869",
+      "SP01_MLF-SANC_OTOE_LANDSCAPE_v12.wav": "7436e3b596f85630800b17ab0ab39c46",
+      "SP02_MLF-SANC_OTOE_LANDSCAPE_v12.wav": "dd5f9984f02f7b35486c48e36fc507e6",
+      "SP03_MLF-SANC_OTOE_LANDSCAPE_v12.wav": "a2f487a202f6b8592854397f07254c50",
+      "SP04_MLF-SANC_OTOE_LANDSCAPE_v12.wav": "f8ab6d1b5deb818bda251381c202e5fe",
+      "SP05_MLF-SANC_OTOE_LANDSCAPE_v12.wav": "1a6f0f7360c10634edc33eac08d220e7",
+      "SP06_MLF-SANC_OTOE_LANDSCAPE_v12.wav": "0ff8150eb7c922c008eb3d6e0e68d27d",
+      "SP07_MLF-SANC_OTOE_LANDSCAPE_v12.wav": "bc6ebfd18038b0fc449041a9f755f301",
+      "SP08_MLF-SANC_OTOE_LANDSCAPE_v12.wav": "4dcfcd9a51f6834596ca346931859ad7",
+      "SP09_MLF-SANC_OTOE_LANDSCAPE_v12.wav": "ab47721e2eea7f7b51a3c5c9d5a4de72",
+      "SP10_MLF-SANC_OTOE_LANDSCAPE_v12.wav": "31e8c21489b0ba5b90f6e3eb9812988f",
+      "SP11_SUB_MLF-SANC_OTOE_LANDSCAPE_v12.wav": "77c572b2dc4ccbbda1b9efffe333e7a4"
+    },
+    "generator_source": {
+      "python_version": "2.7.18",
+      "source_code": "#!/usr/bin/env python3/nimport hashlib\\ndef md5_from_file (fileName, block_size=2**14):\\n    md5 = hashlib.md5()\\n    f = open(fileName)\\n    while True:\\n        data = f.read(block_size)\\n        if not data:\\n            break\\n        md5.update(data)\\n    f.close()\\n    return md5.hexdigest()\\nprint(md5_from_file(\"FILE_NAME.EXT\"))"
+    }
+  }
+}
