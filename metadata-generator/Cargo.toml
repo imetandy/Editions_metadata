@@ -1,0 +1,17 @@
+[package]
+name = "MetadataGenerator"
+version = "0.1.0"
+authors = ["Andrew Robinson <robinson.andrewjames@gmail.com>"]
+license = "MIT"
+description = "A tool to create metadata for digital artwork editions"
+readme = "README.md"
+edition = "2021"
+keywords = ["cli", "metadata", "generator"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+blake3 = {version = "1.5.3"}
+clap = { version = "4.0", features = ["derive"] }
+env_logger = "0.11.5"
+indicatif = {version = "0.15"}
+log = "0.4"
