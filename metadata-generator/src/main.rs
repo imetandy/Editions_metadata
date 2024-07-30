@@ -1,11 +1,30 @@
 use clap::Parser;
 use log::{info, warn};
+//use serde_json::json;
+//use serde::{Deserialize, Serialize};
+use std::fs;
 
-use std::fs::{self, File};
-use std::io;
-use blake3::Hasher;
-use std::io::{BufReader, Read};
+pub mod blake3_hash;
+use blake3_hash::hasher;
 
+// #[derive(Serialize, Deserialize)]
+// struct Metadata {
+//     date_created: String,
+//     title: String,
+//     creator: String,
+//     description: String,
+//     video_files: Vec<MediaFile>,
+//     audio_files: Vec<MediaFile>,
+// }
+
+// #[derive(Serialize, Deserialize)]
+// struct MediaFile {
+//     file_name: String,
+//     file_hash: String,
+//     file_size: u64,
+//     file_type: String,
+//     file_path: String,
+// }
 
 #[derive(Parser)]
 struct Cli {
@@ -15,31 +34,6 @@ struct Cli {
     #[arg(short = 'm', long = "metadata")]
     metadata: std::path::PathBuf,
 }
-
-
-fn hash_file(path: &str) -> io::Result<String> {
-    // Open the file
-    let file = File::open(path)?;
-    let mut reader = BufReader::new(file);
-
-    // Create a Blake3 hasher
-    let mut hasher = Hasher::new();
-
-    // Read the file in chunks and feed it to the hasher
-    let mut buffer = [0u8; 8192];
-    loop {
-        let bytes_read = reader.read(&mut buffer)?;
-        if bytes_read == 0 {
-            break; // End of file
-        }
-        hasher.update(&buffer[..bytes_read]);
-    }
-
-    // Finalize the hash and return it as a hexadecimal string
-    let hash = hasher.finalize();
-    Ok(hash.to_hex().to_string())
-}
-
 
 fn main() {
     // logger initialization
@@ -68,7 +62,7 @@ fn main() {
                 let file_path = entry.path();
                 let file_path_str = file_path.to_string_lossy(); // Convert path to a string
 
-                match hash_file(&file_path_str) {
+                match hasher::hash_file(&file_path_str) {
                     Ok(hash) => println!("File hash for {}: {}", file_path_str, hash),
                     Err(e) => eprintln!("Error hashing file {}: {}", file_path_str, e),
                 }
