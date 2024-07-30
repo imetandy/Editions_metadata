@@ -1,30 +1,30 @@
 use clap::Parser;
 use log::{info, warn};
-//use serde_json::json;
-//use serde::{Deserialize, Serialize};
-use std::fs;
+use serde::{Deserialize, Serialize};
+use serde_json::Result;
+use std::{fs::{self, File}, io::{BufWriter, Write}};
 
 pub mod blake3_hash;
 use blake3_hash::hasher;
 
-// #[derive(Serialize, Deserialize)]
-// struct Metadata {
-//     date_created: String,
-//     title: String,
-//     creator: String,
-//     description: String,
-//     video_files: Vec<MediaFile>,
-//     audio_files: Vec<MediaFile>,
-// }
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+struct Metadata {
+    date_created: String,
+    title: String,
+    creator: String,
+    description: String,
+    video_files: Vec<MediaFile>,
+    audio_files: Vec<MediaFile>,
+}
 
-// #[derive(Serialize, Deserialize)]
-// struct MediaFile {
-//     file_name: String,
-//     file_hash: String,
-//     file_size: u64,
-//     file_type: String,
-//     file_path: String,
-// }
+#[derive(Serialize, Deserialize, Debug)]
+struct MediaFile {
+    file_name: String,
+    file_hash: String,
+    file_size: u64,
+    file_type: String,
+    file_path: String,
+}
 
 #[derive(Parser)]
 struct Cli {
@@ -35,7 +35,46 @@ struct Cli {
     metadata: std::path::PathBuf,
 }
 
-fn main() {
+fn main() -> Result<()> {
+    // initialize metadata
+
+    let metadata = r#"
+    {
+        "date_created": "2021-09-01",
+        "title": "My Video",
+        "creator": "Me",
+        "description": "A video I made",
+        "video_files": [
+            {
+                "file_name": "video.mp4",
+                "file_hash": "1234567890abcdef",
+                "file_size": 1234567890,
+                "file_type": "video/mp4",
+                "file_path": "/path/to/video.mp4"
+            }
+        ],
+        "audio_files": [
+            {
+                "file_name": "audio.mp3",
+                "file_hash": "abcdef1234567890",
+                "file_size": 9876543210,
+                "file_type": "audio/mp3",
+                "file_path": "/path/to/audio.mp3"
+            }
+        ]
+    }"#;
+    let m: Metadata = serde_json::from_str(metadata)?;
+
+    // Do things just like with any other Rust data structure.
+    println!("Data: {}", m.description);
+
+    let file = File::create("metadata.json");
+
+    let mut writer = BufWriter::new(file.unwrap());
+    serde_json::to_writer_pretty(&mut writer, &m)?;
+    let _ = writer.flush();
+
+
     // logger initialization
     env_logger::init();
     info!("starting up");
@@ -44,9 +83,6 @@ fn main() {
     let args = Cli::parse();
 
     let path = args.path;
-
-    let metadata = std::fs::read_to_string(&args.metadata).expect("could not read file");
-    println!("metadata: {}", metadata);
 
     let files = fs::read_dir(path.clone()).unwrap();
 
@@ -69,6 +105,8 @@ fn main() {
             }
             Err(e) => eprintln!("Error reading directory entry: {}", e),
         }
+
+    
     }
     // TODO: Progrdess bar, will implement later
     // let pb = indicatif::ProgressBar::new(100);
@@ -79,5 +117,7 @@ fn main() {
     // }
     // pb.finish_with_message("done");
 
-}
+    Ok(())
+
+}   
 

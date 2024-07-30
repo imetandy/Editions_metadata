@@ -1,0 +1,24 @@
+{
+  "date_created": "2021-09-01",
+  "title": "My Video",
+  "creator": "Me",
+  "description": "A video I made",
+  "video_files": [
+    {
+      "file_name": "video.mp4",
+      "file_hash": "1234567890abcdef",
+      "file_size": 1234567890,
+      "file_type": "video/mp4",
+      "file_path": "/path/to/video.mp4"
+    }
+  ],
+  "audio_files": [
+    {
+      "file_name": "audio.mp3",
+      "file_hash": "abcdef1234567890",
+      "file_size": 9876543210,
+      "file_type": "audio/mp3",
+      "file_path": "/path/to/audio.mp3"
+    }
+  ]
+}
