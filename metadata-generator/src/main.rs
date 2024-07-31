@@ -36,35 +36,99 @@ struct Cli {
 }
 
 fn main() -> Result<()> {
+    // read in user metadata
+    // users can either supply a metadata file, or we can generate one for them with the data they input on cmd
+
+    let mut user_date = String::new();
+    println!("Enter the date the artwork was created, in format YYYY-MM-DD: ");
+    match std::io::stdin().read_line(&mut user_date) {
+        Ok(n) => {
+            user_date = user_date.trim().to_string();
+            println!("{} bytes read", n);
+            println!("You entered: {}", user_date);
+        }
+        Err(e) => {
+            eprintln!("Error reading user input: {}", e);
+        }
+    }
+    let mut user_title = String::new();
+    println!("Enter the title of the artwork: ");
+    match std::io::stdin().read_line(&mut user_title) {
+        Ok(n) => {
+            user_title = user_title.trim().to_string();
+            println!("{} bytes read", n);
+            println!("You entered: {}", user_title);
+        }
+        Err(e) => {
+            eprintln!("Error reading user input: {}", e);
+        }
+    }
+    let mut user_creator = String::new();
+    println!("Enter the creator name of the artwork: ");
+    match std::io::stdin().read_line(&mut user_creator) {
+        Ok(n) => {
+            user_creator = user_creator.trim().to_string();
+            println!("{} bytes read", n);
+            println!("You entered: {}", user_creator);
+        }
+        Err(e) => {
+            eprintln!("Error reading user input: {}", e);
+        }
+    }
+    let mut user_description = String::new();
+    println!("Enter the desciption of the artwork: ");
+    match std::io::stdin().read_line(&mut user_description) {
+        Ok(n) => {
+            user_description = user_description.trim().to_string();
+            println!("{} bytes read", n);
+            println!("You entered: {}", user_description);
+        }
+        Err(e) => {
+            eprintln!("Error reading user input: {}", e);
+        }
+    }
+
+    let metadata_collector = Metadata {
+        date_created: user_date,
+        title: user_title,
+        creator: user_creator,
+        description: user_description,
+        video_files: Vec::new(),
+        audio_files: Vec::new(),
+    };
+
+
+
+
     // initialize metadata
 
-    let metadata = r#"
-    {
-        "date_created": "2021-09-01",
-        "title": "My Video",
-        "creator": "Me",
-        "description": "A video I made",
-        "video_files": [
-            {
-                "file_name": "video.mp4",
-                "file_hash": "1234567890abcdef",
-                "file_size": 1234567890,
-                "file_type": "video/mp4",
-                "file_path": "/path/to/video.mp4"
-            }
-        ],
-        "audio_files": [
-            {
-                "file_name": "audio.mp3",
-                "file_hash": "abcdef1234567890",
-                "file_size": 9876543210,
-                "file_type": "audio/mp3",
-                "file_path": "/path/to/audio.mp3"
-            }
-        ]
-    }"#;
-    let m: Metadata = serde_json::from_str(metadata)?;
-
+    // let metadata = r#"
+    // {
+    //     "date_created": "2021-09-01",
+    //     "title": "My Video",
+    //     "creator": "Me",
+    //     "description": "A video I made",
+    //     "video_files": [
+    //         {
+    //             "file_name": "video.mp4",
+    //             "file_hash": "1234567890abcdef",
+    //             "file_size": 1234567890,
+    //             "file_type": "video/mp4",
+    //             "file_path": "/path/to/video.mp4"
+    //         }
+    //     ],
+    //     "audio_files": [
+    //         {
+    //             "file_name": "audio.mp3",
+    //             "file_hash": "abcdef1234567890",
+    //             "file_size": 9876543210,
+    //             "file_type": "audio/mp3",
+    //             "file_path": "/path/to/audio.mp3"
+    //         }
+    //     ]
+    // }"#;
+    //let m: Metadata = serde_json::from_str(metadata)?;
+    let m = metadata_collector;
     // Do things just like with any other Rust data structure.
     println!("Data: {}", m.description);
 
