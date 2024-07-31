@@ -142,57 +142,17 @@ fn main() -> Result<()> {
         }
     }
 }
+    // Add user input to metadata struct
     metadata_collector.date_created = user_input[0].clone().trim().to_string();
     metadata_collector.title = user_input[1].clone().trim().to_string();
     metadata_collector.creator = user_input[2].clone().trim().to_string();
     metadata_collector.description = user_input[3].clone().trim().to_string();
     
     
-    // let metadata_collector = Metadata {
-    //     date_created: user_input[0].clone().trim().to_string(),
-    //     title: user_input[1].clone().trim().to_string(),
-    //     creator: user_input[2].clone().trim().to_string(),
-    //     description: user_input[3].clone().trim().to_string(),
-    //     video_files: Vec::new(),
-    //     audio_files: Vec::new(),
-    // };
-
-
-
-
-    // initialize metadata
-
-    // let metadata = r#"
-    // {
-    //     "date_created": "2021-09-01",
-    //     "title": "My Video",
-    //     "creator": "Me",
-    //     "description": "A video I made",
-    //     "video_files": [
-    //         {
-    //             "file_name": "video.mp4",
-    //             "file_hash": "1234567890abcdef",
-    //             "file_size": 1234567890,
-    //             "file_type": "video/mp4",
-    //             "file_path": "/path/to/video.mp4"
-    //         }
-    //     ],
-    //     "audio_files": [
-    //         {
-    //             "file_name": "audio.mp3",
-    //             "file_hash": "abcdef1234567890",
-    //             "file_size": 9876543210,
-    //             "file_type": "audio/mp3",
-    //             "file_path": "/path/to/audio.mp3"
-    //         }
-    //     ]
-    // }"#;
-    //let m: Metadata = serde_json::from_str(metadata)?;
+    // Serialize it to a JSON string.
     let m = metadata_collector;
-    // Do things just like with any other Rust data structure.
-    println!("Data: {}", m.description);
-
-    let file = File::create("metadata.json");
+    // make a new file with the name as the title
+    let file = File::create(&(m.title.to_owned() + "_metadata.json"));
 
     let mut writer = BufWriter::new(file.unwrap());
     serde_json::to_writer_pretty(&mut writer, &m)?;
