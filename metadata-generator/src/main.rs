@@ -39,60 +39,56 @@ fn main() -> Result<()> {
     // read in user metadata
     // users can either supply a metadata file, or we can generate one for them with the data they input on cmd
 
-    let mut user_date = String::new();
-    println!("Enter the date the artwork was created, in format YYYY-MM-DD: ");
-    match std::io::stdin().read_line(&mut user_date) {
-        Ok(n) => {
-            user_date = user_date.trim().to_string();
-            println!("{} bytes read", n);
-            println!("You entered: {}", user_date);
+    let mut user_input = Vec::new();
+    
+    let user_date: String = "".to_string();
+    let user_title: String = "".to_string();
+    let user_creator: String = "".to_string();
+    let user_description: String = "".to_string();
+    
+    user_input.push(user_date);
+    user_input.push(user_title);
+    user_input.push(user_creator);
+    user_input.push(user_description);
+
+
+
+    for (i, message) in user_input.iter_mut().enumerate() {
+
+    match i {
+        0 => {
+            println!("Enter the date the video was created: ");
         }
-        Err(e) => {
-            eprintln!("Error reading user input: {}", e);
+        1 => {
+            println!("Enter the title of the video: ");
         }
-    }
-    let mut user_title = String::new();
-    println!("Enter the title of the artwork: ");
-    match std::io::stdin().read_line(&mut user_title) {
-        Ok(n) => {
-            user_title = user_title.trim().to_string();
-            println!("{} bytes read", n);
-            println!("You entered: {}", user_title);
+        2 => {
+            println!("Enter the creator of the video: ");
         }
-        Err(e) => {
-            eprintln!("Error reading user input: {}", e);
+        3 => {
+            println!("Enter a description of the video: ");
         }
-    }
-    let mut user_creator = String::new();
-    println!("Enter the creator name of the artwork: ");
-    match std::io::stdin().read_line(&mut user_creator) {
-        Ok(n) => {
-            user_creator = user_creator.trim().to_string();
-            println!("{} bytes read", n);
-            println!("You entered: {}", user_creator);
-        }
-        Err(e) => {
-            eprintln!("Error reading user input: {}", e);
-        }
-    }
-    let mut user_description = String::new();
-    println!("Enter the desciption of the artwork: ");
-    match std::io::stdin().read_line(&mut user_description) {
-        Ok(n) => {
-            user_description = user_description.trim().to_string();
-            println!("{} bytes read", n);
-            println!("You entered: {}", user_description);
-        }
-        Err(e) => {
-            eprintln!("Error reading user input: {}", e);
+        _ => {
+               break;
         }
     }
 
+    match std::io::stdin().read_line(message) {
+        Ok(_) => {
+
+            println!("You entered: {}", message);
+        }
+        Err(e) => {
+            eprintln!("Error reading user input: {}", e);
+        }
+    }
+}
+
     let metadata_collector = Metadata {
-        date_created: user_date,
-        title: user_title,
-        creator: user_creator,
-        description: user_description,
+        date_created: user_input[0].clone().trim().to_string(),
+        title: user_input[1].clone().trim().to_string(),
+        creator: user_input[2].clone().trim().to_string(),
+        description: user_input[3].clone().trim().to_string(),
         video_files: Vec::new(),
         audio_files: Vec::new(),
     };
