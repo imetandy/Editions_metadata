@@ -1,8 +1,30 @@
 {
-  "date_created": "2027-01-20",
-  "title": "the video",
-  "creator": "the creator",
-  "description": "the description",
-  "video_files": [],
+  "date_created": "my movie",
+  "title": "sorry that was supposed to be the date",
+  "creator": "im andrew",
+  "description": "sorrry again",
+  "video_files": [
+    {
+      "file_name": "file2.txt",
+      "file_hash": "a6a1780b8571e034d01dfc708e0d77c0ef71c4d3e172abfc69976034b2fb96ea",
+      "file_size": 20,
+      "file_type": "txt",
+      "file_path": "/Users/andrew/Documents/projects/Editions_metadata/test_folder/file2.txt"
+    },
+    {
+      "file_name": "file3.txt",
+      "file_hash": "b1310cf17c8a78c099717deb716e18dbbfcb681de05711c11815d8aae60911e7",
+      "file_size": 19,
+      "file_type": "txt",
+      "file_path": "/Users/andrew/Documents/projects/Editions_metadata/test_folder/file3.txt"
+    },
+    {
+      "file_name": "file1.txt",
+      "file_hash": "bd2c516fbaa23b907936699e8cb79a3ac9414f7760f6354244bc29d3b5b379a8",
+      "file_size": 19,
+      "file_type": "txt",
+      "file_path": "/Users/andrew/Documents/projects/Editions_metadata/test_folder/file1.txt"
+    }
+  ],
   "audio_files": []
 }

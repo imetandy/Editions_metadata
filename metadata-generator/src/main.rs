@@ -39,6 +39,65 @@ fn main() -> Result<()> {
     // read in user metadata
     // users can either supply a metadata file, or we can generate one for them with the data they input on cmd
 
+    // logger initialization
+    env_logger::init();
+    info!("starting up");
+    warn!("oops, nothing implemented!");
+
+    let args = Cli::parse();
+
+    let path = args.path;
+
+    let files = fs::read_dir(path.clone()).unwrap();
+
+    for file in files {
+        println!("Name: {}", file.unwrap().path().display());
+    }
+
+    let directory = fs::read_dir(path).unwrap();
+
+    let mut metadata_collector = Metadata {
+        date_created: "".to_string(),
+        title: "".to_string(),
+        creator: "".to_string(),
+        description: "".to_string(),
+        video_files: Vec::new(),
+        audio_files: Vec::new(),
+    };
+    
+    for entry in directory {
+        match entry {
+            Ok(entry) => {
+                let file_path = entry.path();
+                // Convert path to a string
+                let file_path_str = file_path.to_string_lossy(); 
+                let hash_result = hasher::hash_file(&file_path_str);
+
+                let hash = match hash_result {
+                    Ok(hash) => {
+                        println!("File hash for {}: {}", file_path_str, hash);
+                        hash
+                    }
+                    Err(e) => {
+                        eprintln!("Error hashing file {}: {}", file_path_str, e);
+                        continue;
+                    }
+                };
+                let file_metadata = MediaFile {
+                    file_name: file_path.file_name().unwrap().to_string_lossy().to_string(),
+                    file_hash: hash.to_string(),
+                    file_size: file_path.metadata().unwrap().len(),
+                    file_type: file_path.extension().unwrap().to_string_lossy().to_string(),
+                    file_path: file_path.to_string_lossy().to_string(),
+                };
+                metadata_collector.video_files.push(file_metadata);
+            }
+            Err(e) => eprintln!("Error reading directory entry: {}", e),
+        }
+    }
+
+
+
     let mut user_input = Vec::new();
     
     let user_date: String = "".to_string();
@@ -83,15 +142,20 @@ fn main() -> Result<()> {
         }
     }
 }
-
-    let metadata_collector = Metadata {
-        date_created: user_input[0].clone().trim().to_string(),
-        title: user_input[1].clone().trim().to_string(),
-        creator: user_input[2].clone().trim().to_string(),
-        description: user_input[3].clone().trim().to_string(),
-        video_files: Vec::new(),
-        audio_files: Vec::new(),
-    };
+    metadata_collector.date_created = user_input[0].clone().trim().to_string();
+    metadata_collector.title = user_input[1].clone().trim().to_string();
+    metadata_collector.creator = user_input[2].clone().trim().to_string();
+    metadata_collector.description = user_input[3].clone().trim().to_string();
+    
+    
+    // let metadata_collector = Metadata {
+    //     date_created: user_input[0].clone().trim().to_string(),
+    //     title: user_input[1].clone().trim().to_string(),
+    //     creator: user_input[2].clone().trim().to_string(),
+    //     description: user_input[3].clone().trim().to_string(),
+    //     video_files: Vec::new(),
+    //     audio_files: Vec::new(),
+    // };
 
 
 
@@ -135,39 +199,7 @@ fn main() -> Result<()> {
     let _ = writer.flush();
 
 
-    // logger initialization
-    env_logger::init();
-    info!("starting up");
-    warn!("oops, nothing implemented!");
 
-    let args = Cli::parse();
-
-    let path = args.path;
-
-    let files = fs::read_dir(path.clone()).unwrap();
-
-    for file in files {
-        println!("Name: {}", file.unwrap().path().display());
-    }
-
-    let directory = fs::read_dir(path).unwrap();
-
-    for entry in directory {
-        match entry {
-            Ok(entry) => {
-                let file_path = entry.path();
-                let file_path_str = file_path.to_string_lossy(); // Convert path to a string
-
-                match hasher::hash_file(&file_path_str) {
-                    Ok(hash) => println!("File hash for {}: {}", file_path_str, hash),
-                    Err(e) => eprintln!("Error hashing file {}: {}", file_path_str, e),
-                }
-            }
-            Err(e) => eprintln!("Error reading directory entry: {}", e),
-        }
-
-    
-    }
     // TODO: Progrdess bar, will implement later
     // let pb = indicatif::ProgressBar::new(100);
     // for i in 0..100 {
