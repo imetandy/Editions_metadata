@@ -1,27 +1,24 @@
 pub mod hasher {
     use blake3::Hasher;
-    use std::{fs::File, io::{self, BufReader, Read}};
+    use std::{io::{self}, path::Path};
+    use std::time::Instant;
 
 pub fn hash_file(path: &str) -> io::Result<String> {
-    // Open the file
-    let file = File::open(path)?;
-    let mut reader = BufReader::new(file);
-
+    // The file
+    let file = Path::new(path);
     // Create a Blake3 hasher
     let mut hasher = Hasher::new();
 
-    // Read the file in chunks and feed it to the hasher
-    let mut buffer = [0u8; 8192];
-    loop {
-        let bytes_read = reader.read(&mut buffer)?;
-        if bytes_read == 0 {
-            break; // End of file
-        }
-        hasher.update(&buffer[..bytes_read]);
-    }
 
+    // Start measuring time
+    let start = Instant::now();
+    hasher.update_mmap_rayon(file)?;
+    
     // Finalize the hash and return it as a hexadecimal string
     let hash = hasher.finalize();
+    // Stop measuring time
+    let duration = start.elapsed();
+    println!("Hashing took {:?}", duration);
     Ok(hash.to_hex().to_string())
 }
 }
