@@ -116,16 +116,16 @@ fn main() -> Result<()> {
 
     match i {
         0 => {
-            println!("Enter the date the video was created: ");
+            println!("Enter the date the artwork was created (YYYY-MM-DD): ");
         }
         1 => {
-            println!("Enter the title of the video: ");
+            println!("Enter the title of the artwork: ");
         }
         2 => {
-            println!("Enter the creator of the video: ");
+            println!("Enter the creator of the artwork: ");
         }
         3 => {
-            println!("Enter a description of the video: ");
+            println!("Enter a description of the artwork: ");
         }
         _ => {
                break;
