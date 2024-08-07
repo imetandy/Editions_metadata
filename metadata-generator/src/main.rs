@@ -32,7 +32,7 @@ struct Cli {
     path: std::path::PathBuf,
 
     #[arg(short = 'm', long = "metadata")]
-    metadata: std::path::PathBuf,
+    metadata: Option<std::path::PathBuf>,
 }
 
 fn main() -> Result<()> {
