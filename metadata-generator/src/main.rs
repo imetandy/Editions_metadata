@@ -4,7 +4,9 @@ use serde::{Deserialize, Serialize};
 use std::{fs::{self, File}, io::{BufWriter, Write, Error}};
 
 pub mod blake3_hash;
+pub mod constants;
 use blake3_hash::hasher;
+use constants::get_file_type;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 struct Metadata {
@@ -31,13 +33,14 @@ struct Cli {
     path: std::path::PathBuf,
 
     #[arg(short = 'm', long = "metadata")]
-    metadata: Option<Option<std::path::PathBuf>>,
+    metadata: Option<std::path::PathBuf>,
 }
 
 fn parse_metadata_file () 
     -> Result<Metadata, Error> {
         let args = Cli::parse();
-        let metadata_file = File::open(args.metadata.as_ref().unwrap())?;
+        let metadata_path = args.metadata.ok_or_else(|| Error::new(std::io::ErrorKind::InvalidInput, "No metadata file provided"))?;
+        let metadata_file = File::open(metadata_path)?;
         let metadata: Metadata = serde_json::from_reader(metadata_file)?;
         println!("Metadata: {:?}", metadata);
 
@@ -64,8 +67,8 @@ fn check_for_metadata_file() -> Result<(), Error> {
 
     let args = Cli::parse();
 
-    if args.metadata != None {
-        let metadata_file = File::open(args.metadata.as_ref().unwrap())?;
+    if let Some(metadata_path) = &args.metadata {
+        let metadata_file = File::open(metadata_path)?;
         let metadata: Metadata = serde_json::from_reader(metadata_file)?;
         println!("Metadata: {:?}", metadata);
 
@@ -176,7 +179,13 @@ fn gather_files(path: &str, metadata_collector: &mut Metadata) -> Result<(), Err
                     file_type: file_path.extension().unwrap().to_string_lossy().to_string(),
                     file_path: file_path.to_string_lossy().to_string(),
                 };
-                metadata_collector.video_files.push(file_metadata);
+                
+                // Automatically sort files based on their type
+                match get_file_type(&file_path) {
+                    "video" => metadata_collector.video_files.push(file_metadata),
+                    "audio" => metadata_collector.audio_files.push(file_metadata),
+                    _ => metadata_collector.video_files.push(file_metadata), // Default to video
+                }
             }
             Err(e) => eprintln!("Error reading directory entry: {}", e),
         }
@@ -188,7 +197,7 @@ fn gather_files(path: &str, metadata_collector: &mut Metadata) -> Result<(), Err
 fn main() -> Result<(), Error> {
 
     // get metadata from user
-    metadata_builder()?;
+    check_for_metadata_file()?;
 
 
     // read in user metadata
@@ -267,25 +276,7 @@ fn main() -> Result<(), Error> {
 
 
 
-//     for (i, message) in user_input.iter_mut().enumerate() {
 
-    match i {
-        0 => {
-            println!("Enter the date the artwork was created (YYYY-MM-DD): ");
-        }
-        1 => {
-            println!("Enter the title of the artwork: ");
-        }
-        2 => {
-            println!("Enter the creator of the artwork: ");
-        }
-        3 => {
-            println!("Enter a description of the artwork: ");
-        }
-        _ => {
-               break;
-        }
-    }
 
 //     match std::io::stdin().read_line(message) {
 //         Ok(_) => {

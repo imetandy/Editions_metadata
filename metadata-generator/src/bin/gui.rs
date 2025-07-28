@@ -6,7 +6,10 @@ use std::path::PathBuf;
 
 #[path = "../blake3_hash.rs"]
 mod blake3_hash;
+#[path = "../constants.rs"]
+mod constants;
 use blake3_hash::hasher;
+use constants::get_file_type;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Default)]
@@ -114,7 +117,13 @@ impl GuiApp {
                     file_type: path.extension().unwrap_or_default().to_string_lossy().to_string(),
                     file_path: path_str,
                 };
-                metadata.video_files.push(mf);
+                
+                // Automatically sort files based on their type
+                match get_file_type(&path) {
+                    "video" => metadata.video_files.push(mf),
+                    "audio" => metadata.audio_files.push(mf),
+                    _ => metadata.video_files.push(mf), // Default to video
+                }
             }
         }
 
