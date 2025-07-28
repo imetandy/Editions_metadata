@@ -1,0 +1,121 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_name: windows-x64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact_name: macos-x64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: macos-arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+          override: true
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Build CLI version
+        run: |
+          cd metadata-generator
+          cargo build --release --features cli --target ${{ matrix.target }}
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp target/${{ matrix.target }}/release/cli.exe ../cli-${{ matrix.artifact_name }}.exe
+          else
+            cp target/${{ matrix.target }}/release/cli ../cli-${{ matrix.artifact_name }}
+          fi
+
+      - name: Build GUI version
+        run: |
+          cd metadata-generator
+          cargo build --release --features gui --target ${{ matrix.target }}
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp target/${{ matrix.target }}/release/MetadataGenerator.exe ../MetadataGenerator-${{ matrix.artifact_name }}.exe
+          else
+            cp target/${{ matrix.target }}/release/MetadataGenerator ../MetadataGenerator-${{ matrix.artifact_name }}
+          fi
+
+      - name: Create release artifacts
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            echo "Creating Windows artifacts..."
+            mkdir -p release
+            cp cli-${{ matrix.artifact_name }}.exe release/
+            cp MetadataGenerator-${{ matrix.artifact_name }}.exe release/
+            cd release
+            7z a -tzip MetadataGenerator-${{ matrix.artifact_name }}.zip *.exe
+          else
+            echo "Creating macOS artifacts..."
+            mkdir -p release
+            cp cli-${{ matrix.artifact_name }} release/
+            cp MetadataGenerator-${{ matrix.artifact_name }} release/
+            cd release
+            zip -r MetadataGenerator-${{ matrix.artifact_name }}.zip *
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: MetadataGenerator-${{ matrix.artifact_name }}
+          path: release/
+
+  create-release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/MetadataGenerator-windows-x64/MetadataGenerator-windows-x64.zip
+            artifacts/MetadataGenerator-macos-x64/MetadataGenerator-macos-x64.zip
+            artifacts/MetadataGenerator-macos-arm64/MetadataGenerator-macos-arm64.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
