@@ -152,7 +152,7 @@ main() {
     
     # Push changes and tag
     print_step "Pushing changes and tag..."
-    git push origin main
+    git push origin master
     git push origin "v$new_version"
     
     print_status "Release v$new_version has been created!"

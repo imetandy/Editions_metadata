@@ -14,8 +14,8 @@ The CI/CD pipeline consists of two main workflows:
 ### Test and Build Workflow
 
 **Triggers:**
-- Push to `main` or `develop` branches
-- Pull requests to `main` branch
+- Push to `master` or `develop` branches
+- Pull requests to `master` branch
 
 **What it does:**
 - Runs tests on Ubuntu, Windows, and macOS

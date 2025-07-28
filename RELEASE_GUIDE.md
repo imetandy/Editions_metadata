@@ -35,7 +35,7 @@ This guide explains how to create releases for the Metadata Generator project.
    ```bash
    git add metadata-generator/Cargo.toml
    git commit -m "chore: bump version to 1.0.0"
-   git push origin main
+   git push origin master
    ```
 3. **Create and push a tag**:
    ```bash
@@ -48,7 +48,7 @@ This guide explains how to create releases for the Metadata Generator project.
 1. **Go to GitHub Actions** in your repository
 2. **Select "Build and Release"** workflow
 3. **Click "Run workflow"**
-4. **Choose the branch** (usually `main`)
+4. **Choose the branch** (usually `master`)
 5. **Click "Run workflow"**
 
 This will build the project and create a release using the current version in `Cargo.toml`.
