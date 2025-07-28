@@ -97,7 +97,7 @@ jobs:
     name: Create Release
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     
     steps:
       - name: Checkout code
@@ -108,9 +108,19 @@ jobs:
         with:
           path: artifacts
 
+      - name: Set release tag for manual runs
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          # Get version from Cargo.toml
+          VERSION=$(grep '^version = ' metadata-generator/Cargo.toml | cut -d'"' -f2)
+          echo "RELEASE_TAG=v$VERSION" >> $GITHUB_ENV
+          echo "Using version: $VERSION"
+
       - name: Create release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_TAG || github.ref_name }}
           files: |
             artifacts/MetadataGenerator-windows-x64/MetadataGenerator-windows-x64.zip
             artifacts/MetadataGenerator-macos-x64/MetadataGenerator-macos-x64.zip
