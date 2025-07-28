@@ -4,7 +4,7 @@ pub mod hasher {
     use std::{fs::File, sync::{atomic::{AtomicBool, AtomicU64, Ordering}, Arc}, thread, time::Duration};
     use memmap::Mmap;
 
-pub fn hash_file(path: &str) -> std::io::Result<()> {
+pub fn hash_file(path: &str) -> std::io::Result<String> {
     // The file
     // let file = Path::new(path);
     let file = File::open(&path)?;
@@ -45,14 +45,13 @@ pub fn hash_file(path: &str) -> std::io::Result<()> {
         }
 
         let hash = hasher.finalize();
-        println!("Hash: {}", hash.to_hex());
-
         done.store(true, Ordering::Relaxed);
+        hash.to_hex().to_string()
     });
 
-    hash_thread.join().unwrap();
+    let hash_hex = hash_thread.join().unwrap();
     pb_thread.join().unwrap();
 
-    Ok(())
+    Ok(hash_hex)
 }
 }
