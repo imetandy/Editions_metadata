@@ -20,3 +20,18 @@ serde_json = "1.0"
 memmap = "0.7"
 eframe = "0.27"
 rfd = "0.14"
+
+[features]
+default = ["gui"]
+cli = []
+gui = []
+
+[[bin]]
+name = "MetadataGenerator"
+path = "src/bin/gui.rs"
+required-features = ["gui"]
+
+[[bin]]
+name = "cli"
+path = "src/main.rs"
+required-features = ["cli"]

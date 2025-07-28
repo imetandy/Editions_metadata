@@ -1,34 +1,31 @@
 use eframe::{egui, App, Frame};
 use rfd::FileDialog;
-use std::fs::{self, File};
-use std::io::{BufWriter, Write};
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
+use std::thread;
 
-#[path = "../blake3_hash.rs"]
-mod blake3_hash;
+
 #[path = "../constants.rs"]
 mod constants;
-use blake3_hash::hasher;
-use constants::get_file_type;
-use serde::{Deserialize, Serialize};
+#[path = "../hasher.rs"]
+mod hasher;
+#[path = "../metadata_generator.rs"]
+mod metadata_generator;
 
-#[derive(Serialize, Deserialize, Default)]
-struct MediaFile {
-    file_name: String,
-    file_hash: String,
-    file_size: u64,
-    file_type: String,
-    file_path: String,
-}
+use metadata_generator::{MetadataGenerator, Metadata, ProgressCallback};
 
-#[derive(Serialize, Deserialize, Default)]
-struct Metadata {
-    date_created: String,
-    title: String,
-    creator: String,
-    description: String,
-    video_files: Vec<MediaFile>,
-    audio_files: Vec<MediaFile>,
+#[derive(Clone)]
+enum GenerationState {
+    Idle,
+    Processing { 
+        current_file: String, 
+        file_progress: f32,
+        overall_progress: f32, 
+        total_files: usize, 
+        processed_files: usize 
+    },
+    Complete { output_path: PathBuf },
+    Error { message: String },
 }
 
 struct GuiApp {
@@ -38,6 +35,7 @@ struct GuiApp {
     creator: String,
     description: String,
     status: String,
+    generation_state: Arc<Mutex<GenerationState>>,
 }
 
 impl Default for GuiApp {
@@ -49,6 +47,7 @@ impl Default for GuiApp {
             creator: String::new(),
             description: String::new(),
             status: String::new(),
+            generation_state: Arc::new(Mutex::new(GenerationState::Idle)),
         }
     }
 }
@@ -76,64 +75,105 @@ impl App for GuiApp {
             ui.label("Description");
             ui.text_edit_multiline(&mut self.description);
 
-            if ui.button("Generate metadata").clicked() {
-                match self.generate() {
-                    Ok(p) => self.status = format!("Saved to {}", p.display()),
-                    Err(e) => self.status = format!("Error: {}", e),
-                }
+            // Check if we can start generation
+            let can_generate = self.folder.is_some() && !self.title.is_empty();
+            
+            if ui.add_enabled(can_generate, egui::Button::new("Generate metadata")).clicked() {
+                self.start_generation();
             }
 
             ui.separator();
-            ui.label(&self.status);
+            
+            // Show progress based on generation state
+            if let Ok(state) = self.generation_state.lock() {
+                match &*state {
+                    GenerationState::Idle => {
+                        ui.label(&self.status);
+                    }
+                    GenerationState::Processing { current_file, file_progress, overall_progress, total_files, processed_files } => {
+                        ui.label(format!("Processing: {}/{} files", processed_files + 1, total_files));
+                        ui.label(format!("Current file: {}", current_file));
+                        ui.add_space(5.0);
+                        
+                        ui.label("File progress:");
+                        ui.add(egui::ProgressBar::new(*file_progress).show_percentage());
+                        
+                        ui.add_space(5.0);
+                        ui.label("Overall progress:");
+                        ui.add(egui::ProgressBar::new(*overall_progress).show_percentage());
+                        ui.label(format!("Overall progress: {:.1}%", overall_progress * 100.0));
+                    }
+                    GenerationState::Complete { output_path } => {
+                        ui.label(format!("✅ Saved to: {}", output_path.display()));
+                        ui.label("Metadata generation complete!");
+                    }
+                    GenerationState::Error { message } => {
+                        ui.label(format!("❌ Error: {}", message));
+                    }
+                }
+            }
+
+            // Request continuous updates when processing
+            if let Ok(state) = self.generation_state.lock() {
+                if matches!(&*state, GenerationState::Processing { .. }) {
+                    ctx.request_repaint();
+                }
+            }
         });
     }
-
 }
 
 impl GuiApp {
-    fn generate(&self) -> std::io::Result<PathBuf> {
-        let folder = self.folder.clone().ok_or_else(|| std::io::Error::new(std::io::ErrorKind::Other, "No folder selected"))?;
-        let entries = fs::read_dir(&folder)?;
+    fn start_generation(&self) {
+        let folder = self.folder.clone();
+        let date = self.date.clone();
+        let title = self.title.clone();
+        let creator = self.creator.clone();
+        let description = self.description.clone();
+        let generation_state = Arc::clone(&self.generation_state);
 
-        let mut metadata = Metadata {
-            date_created: self.date.clone(),
-            title: self.title.clone(),
-            creator: self.creator.clone(),
-            description: self.description.clone(),
-            video_files: Vec::new(),
-            audio_files: Vec::new(),
-        };
+        thread::spawn(move || {
+            let generation_state_clone = Arc::clone(&generation_state);
+            
+            // Create metadata
+            let metadata = Metadata {
+                date_created: date,
+                title: title.clone(),
+                creator,
+                description,
+                video_files: Vec::new(),
+                audio_files: Vec::new(),
+            };
 
-        for entry in entries {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_file() {
-                let path_str = path.to_string_lossy().to_string();
-                let hash = hasher::hash_file(&path_str)?;
-                let mf = MediaFile {
-                    file_name: path.file_name().unwrap().to_string_lossy().to_string(),
-                    file_hash: hash,
-                    file_size: path.metadata()?.len(),
-                    file_type: path.extension().unwrap_or_default().to_string_lossy().to_string(),
-                    file_path: path_str,
-                };
-                
-                // Automatically sort files based on their type
-                match get_file_type(&path) {
-                    "video" => metadata.video_files.push(mf),
-                    "audio" => metadata.audio_files.push(mf),
-                    _ => metadata.video_files.push(mf), // Default to video
+            // Create generator with GUI progress callback
+            let generator = MetadataGenerator::new_gui()
+                .with_progress_callback(ProgressCallback::Gui(Box::new(move |current_file, file_progress, overall_progress| {
+                    if let Ok(mut state) = generation_state_clone.lock() {
+                        *state = GenerationState::Processing {
+                            current_file,
+                            file_progress,
+                            overall_progress,
+                            total_files: 0, // Will be updated
+                            processed_files: (overall_progress * 100.0) as usize,
+                        };
+                    }
+                })));
+
+            match generator.generate_metadata_async(&folder.unwrap(), &metadata) {
+                Ok(output_path) => {
+                    if let Ok(mut state) = generation_state.lock() {
+                        *state = GenerationState::Complete { output_path };
+                    }
+                }
+                Err(e) => {
+                    if let Ok(mut state) = generation_state.lock() {
+                        *state = GenerationState::Error {
+                            message: e.to_string(),
+                        };
+                    }
                 }
             }
-        }
-
-        let file_name = format!("{}_metadata.json", self.title.replace(' ', "_"));
-        let output = folder.join(file_name);
-        let file = File::create(&output)?;
-        let mut writer = BufWriter::new(file);
-        serde_json::to_writer_pretty(&mut writer, &metadata)?;
-        writer.flush()?;
-        Ok(output)
+        });
     }
 }
 

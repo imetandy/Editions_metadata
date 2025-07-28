@@ -8,6 +8,10 @@ pub const AUDIO_EXTENSIONS: &[&str] = &[
     "wav", "mp3", "aac", "flac", "ogg", "wma", "m4a", "opus", "aiff", "alac"
 ];
 
+pub const IGNORE_FILES: &[&str] = &[
+    ".DS_Store", "Thumbs.db", ".gitignore", ".gitkeep"
+];
+
 pub fn get_file_type(file_path: &Path) -> &'static str {
     if let Some(extension) = file_path.extension() {
         let ext_str = extension.to_str().unwrap_or("").to_lowercase();
@@ -22,4 +26,8 @@ pub fn get_file_type(file_path: &Path) -> &'static str {
     } else {
         "video" // Default to video if no extension
     }
+}
+
+pub fn should_ignore_file(file_name: &str) -> bool {
+    IGNORE_FILES.contains(&file_name)
 } 
