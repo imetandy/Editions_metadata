@@ -75,7 +75,7 @@ fn main() -> Result<()> {
 
                 let hash = match hash_result {
                     Ok(hash) => {
-                        println!("File hash for {}: {:?}", file_path_str, hash);
+                        println!("File hash for {}: {}", file_path_str, hash);
                         hash
                     }
                     Err(e) => {
@@ -85,7 +85,7 @@ fn main() -> Result<()> {
                 };
                 let file_metadata = MediaFile {
                     file_name: file_path.file_name().unwrap().to_string_lossy().to_string(),
-                    file_hash: format!("{:?}", hash),
+                    file_hash: hash,
                     file_size: file_path.metadata().unwrap().len(),
                     file_type: file_path.extension().unwrap().to_string_lossy().to_string(),
                     file_path: file_path.to_string_lossy().to_string(),
