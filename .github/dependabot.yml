@@ -12,6 +12,7 @@ updates:
       - "imetandy"
     assignees:
       - "imetandy"
+    target-branch: "master"
     commit-message:
       prefix: "deps"
       include: "scope"
