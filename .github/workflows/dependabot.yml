@@ -28,12 +28,14 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Test with updated dependencies
+        shell: bash
         run: |
           cd metadata-generator
           cargo test --features cli
           cargo test --features gui
 
       - name: Build with updated dependencies
+        shell: bash
         run: |
           cd metadata-generator
           cargo build --release --features cli

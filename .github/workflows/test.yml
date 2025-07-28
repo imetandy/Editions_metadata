@@ -36,17 +36,20 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Run tests
+        shell: bash
         run: |
           cd metadata-generator
           cargo test --features cli
           cargo test --features gui
 
       - name: Check formatting
+        shell: bash
         run: |
           cd metadata-generator
           cargo fmt -- --check
 
       - name: Clippy check
+        shell: bash
         run: |
           cd metadata-generator
           cargo clippy --features cli -- -D warnings
@@ -78,11 +81,13 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Build CLI version
+        shell: bash
         run: |
           cd metadata-generator
           cargo build --release --features cli
 
       - name: Build GUI version
+        shell: bash
         run: |
           cd metadata-generator
           cargo build --release --features gui 
