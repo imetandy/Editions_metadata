@@ -5,6 +5,11 @@ on:
     tags:
       - 'v*'
 
+# Set permissions for the workflow
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   build:
     runs-on: macos-latest
@@ -14,10 +19,9 @@ jobs:
       uses: actions/checkout@v4
       
     - name: Setup Rust
-      uses: actions-rs/toolchain@v1
+      uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: stable
-        override: true
+        targets: x86_64-apple-darwin
         
     - name: Install dependencies
       run: |
@@ -37,7 +41,7 @@ jobs:
         zip -r MetadataGenerator-macOS.zip MetadataGenerator.app
         
     - name: Create Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         files: |
           metadata-generator/MetadataGenerator-Installer.dmg
@@ -45,27 +49,27 @@ jobs:
         body: |
           ## MetadataGenerator ${{ github.ref_name }}
           
-          ### 🎉 What's New
+          ### What's New
           - Professional DMG installer with custom icon
           - Drag-and-drop installation experience
           - Optimized for macOS 10.15+
           
-          ### 📦 Installation
+          ### Installation
           1. Download the DMG installer
           2. Double-click to mount
           3. Drag to Applications folder
           4. Launch from Applications
           
-          ### 🖥️ System Requirements
+          ### System Requirements
           - macOS 10.15 (Catalina) or later
           - No additional dependencies required
           
-          ### 🔧 For Developers
+          ### For Developers
           - Built with Rust and egui
           - Source code available in this repository
           - CLI version also included
           
-          ### 📝 Release Notes
+          ### Release Notes
           This release includes a professional DMG installer with custom branding and improved user experience.
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
