@@ -1,0 +1,22 @@
+{
+  "artwork_id": "TEST001",
+  "artwork_title": "Test Artwork",
+  "artwork_short_title": "Test",
+  "artwork_creator": "Test Creator",
+  "year_of_creation": 2024,
+  "short_description": "A test artwork",
+  "long_description": "This is a test artwork for testing the metadata generator",
+  "edition_number": 1,
+  "total_editions": 1,
+  "issue_date": "2024-01-01",
+  "gallery": "Test Gallery",
+  "keywords": [
+    "test",
+    "artwork"
+  ],
+  "medium": [
+    "digital"
+  ],
+  "certificate_of_authenticity": "",
+  "artwork_files": []
+}

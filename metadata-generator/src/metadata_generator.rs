@@ -1,25 +1,70 @@
 use std::{fs::{self, File}, io::{BufWriter, Write}, path::PathBuf};
 use serde::{Deserialize, Serialize};
-use crate::constants::{get_file_type, should_ignore_file};
+use crate::constants::should_ignore_file;
 use crate::hasher::UnifiedHasher;
+use crate::file_analyzer::analyze_file;
+
+/// Detects certificate of authenticity PDF files in a certificate folder
+/// Returns the relative path to the first PDF file found, or None if no PDF files exist
+pub fn detect_certificate_of_authenticity(folder_path: &PathBuf) -> Option<String> {
+    let certificate_folder = folder_path.join("certificate");
+    
+    if !certificate_folder.exists() || !certificate_folder.is_dir() {
+        return None;
+    }
+    
+    // Look for any PDF file in the certificate folder
+    if let Ok(entries) = fs::read_dir(&certificate_folder) {
+        for entry in entries {
+            if let Ok(entry) = entry {
+                let path = entry.path();
+                if path.is_file() {
+                    if let Some(extension) = path.extension() {
+                        if extension.to_string_lossy().to_lowercase() == "pdf" {
+                            // Return relative path to the PDF file
+                            let file_name = path.file_name().unwrap().to_string_lossy().to_string();
+                            return Some(format!("./certificate/{}", file_name));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    None
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct MediaFile {
+pub struct ArtworkFile {
+    pub path: String,
     pub file_name: String,
+    #[serde(rename = "type")]
+    pub file_type: String,
     pub file_hash: String,
     pub file_size: u64,
-    pub file_type: String,
-    pub file_path: String,
+    pub resolution: Option<String>,
+    pub duration: Option<String>,
+    pub format: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Metadata {
-    pub date_created: String,
-    pub title: String,
-    pub creator: String,
-    pub description: String,
-    pub video_files: Vec<MediaFile>,
-    pub audio_files: Vec<MediaFile>,
+    pub artwork_id: String,
+    pub artwork_title: String,
+    pub artwork_short_title: String,
+    pub artwork_creator: String,
+    pub year_of_creation: i32,
+    pub short_description: String,
+    pub long_description: String,
+    pub edition_number: i32,
+    pub total_editions: i32,
+    pub issue_date: String,
+    pub gallery: String,
+    pub keywords: Vec<String>,
+    pub medium: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub certificate_of_authenticity: Option<String>,
+    pub artwork_files: Vec<ArtworkFile>,
 }
 
 #[allow(dead_code)]
@@ -66,16 +111,15 @@ impl MetadataGenerator {
         let mut processed_files = 0;
 
         let mut output_metadata = metadata.clone();
-        output_metadata.video_files.clear();
-        output_metadata.audio_files.clear();
+        output_metadata.artwork_files.clear();
 
         for (index, entry) in entries.into_iter().enumerate() {
             let entry = entry?;
             let path = entry.path();
             
             if path.is_file() {
-                let path_str = path.to_string_lossy().to_string();
                 let file_name = path.file_name().unwrap().to_string_lossy().to_string();
+                let relative_path = format!("./{}", file_name);
                 
                 // Skip ignored files
                 if should_ignore_file(&file_name) {
@@ -94,24 +138,33 @@ impl MetadataGenerator {
                     ProgressCallback::None => {}
                 }
 
-                // Hash the file
-                let hash = self.hasher.hash_file(&path_str)?;
+                // Hash the file (use absolute path for hashing)
+                let absolute_path = path.to_string_lossy().to_string();
+                let hash = self.hasher.hash_file(&absolute_path)?;
                 processed_files += 1;
 
-                let mf = MediaFile {
+                // Analyze file to extract metadata
+                let file_metadata = analyze_file(&path).unwrap_or_else(|_| {
+                    // Fallback if analysis fails
+                    crate::file_analyzer::FileMetadata {
+                        resolution: None,
+                        duration: None,
+                        format: path.extension().unwrap_or_default().to_string_lossy().to_string().to_uppercase(),
+                    }
+                });
+
+                let af = ArtworkFile {
+                    path: relative_path,
                     file_name: file_name.clone(),
+                    file_type: file_metadata.format.clone(),
                     file_hash: hash,
                     file_size: path.metadata()?.len(),
-                    file_type: path.extension().unwrap_or_default().to_string_lossy().to_string(),
-                    file_path: path_str,
+                    resolution: file_metadata.resolution,
+                    duration: file_metadata.duration,
+                    format: file_metadata.format,
                 };
                 
-                // Automatically sort files based on their type
-                match get_file_type(&path) {
-                    "video" => output_metadata.video_files.push(mf),
-                    "audio" => output_metadata.audio_files.push(mf),
-                    _ => output_metadata.video_files.push(mf), // Default to video
-                }
+                output_metadata.artwork_files.push(af);
 
                 // Report completion
                 match &self.progress_callback {
@@ -128,7 +181,7 @@ impl MetadataGenerator {
         }
 
         // Save metadata to file
-        let file_name = format!("{}_metadata.json", metadata.title.replace(' ', "_"));
+        let file_name = format!("{}_metadata.json", metadata.artwork_title.replace(' ', "_"));
         let output = folder_path.join(file_name);
         let file = File::create(&output)?;
         let mut writer = BufWriter::new(file);
@@ -148,16 +201,15 @@ impl MetadataGenerator {
         let mut processed_files = 0;
 
         let mut output_metadata = metadata.clone();
-        output_metadata.video_files.clear();
-        output_metadata.audio_files.clear();
+        output_metadata.artwork_files.clear();
 
         for (index, entry) in entries.into_iter().enumerate() {
             let entry = entry?;
             let path = entry.path();
             
             if path.is_file() {
-                let path_str = path.to_string_lossy().to_string();
                 let file_name = path.file_name().unwrap().to_string_lossy().to_string();
+                let relative_path = format!("./{}", file_name);
                 
                 // Skip ignored files
                 if should_ignore_file(&file_name) {
@@ -176,8 +228,9 @@ impl MetadataGenerator {
                     ProgressCallback::None => {}
                 }
 
-                // Start async hashing
-                self.hasher.hash_file_async(&path_str);
+                // Start async hashing (use absolute path for hashing)
+                let absolute_path = path.to_string_lossy().to_string();
+                self.hasher.hash_file_async(&absolute_path);
                 
                 // Wait for hash to complete while updating progress
                 let hash = loop {
@@ -201,20 +254,28 @@ impl MetadataGenerator {
                 
                 processed_files += 1;
 
-                let mf = MediaFile {
+                // Analyze file to extract metadata
+                let file_metadata = analyze_file(&path).unwrap_or_else(|_| {
+                    // Fallback if analysis fails
+                    crate::file_analyzer::FileMetadata {
+                        resolution: None,
+                        duration: None,
+                        format: path.extension().unwrap_or_default().to_string_lossy().to_string().to_uppercase(),
+                    }
+                });
+
+                let af = ArtworkFile {
+                    path: relative_path,
                     file_name: file_name.clone(),
+                    file_type: file_metadata.format.clone(),
                     file_hash: hash,
                     file_size: path.metadata()?.len(),
-                    file_type: path.extension().unwrap_or_default().to_string_lossy().to_string(),
-                    file_path: path_str,
+                    resolution: file_metadata.resolution,
+                    duration: file_metadata.duration,
+                    format: file_metadata.format,
                 };
                 
-                // Automatically sort files based on their type
-                match get_file_type(&path) {
-                    "video" => output_metadata.video_files.push(mf),
-                    "audio" => output_metadata.audio_files.push(mf),
-                    _ => output_metadata.video_files.push(mf), // Default to video
-                }
+                output_metadata.artwork_files.push(af);
 
                 // Report completion
                 match &self.progress_callback {
@@ -231,7 +292,7 @@ impl MetadataGenerator {
         }
 
         // Save metadata to file
-        let file_name = format!("{}_metadata.json", metadata.title.replace(' ', "_"));
+        let file_name = format!("{}_metadata.json", metadata.artwork_title.replace(' ', "_"));
         let output = folder_path.join(file_name);
         let file = File::create(&output)?;
         let mut writer = BufWriter::new(file);

@@ -39,6 +39,19 @@ mkdir -p "${RESOURCES_DIR}"
 echo -e "${YELLOW}Copying executable...${NC}"
 cp "target/release/${APP_NAME}" "${MACOS_DIR}/${APP_NAME}"
 
+# Bundle FFmpeg libraries
+echo -e "${YELLOW}Bundling FFmpeg libraries...${NC}"
+if [ -f "scripts/bundle-ffmpeg.sh" ]; then
+    chmod +x "scripts/bundle-ffmpeg.sh"
+    ./scripts/bundle-ffmpeg.sh
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}FFmpeg bundling failed!${NC}"
+        exit 1
+    fi
+else
+    echo -e "${YELLOW}Warning: bundle-ffmpeg.sh not found. App may have dependency issues.${NC}"
+fi
+
 # Create Info.plist
 echo -e "${YELLOW}Creating Info.plist...${NC}"
 cat > "${CONTENTS_DIR}/Info.plist" << EOF

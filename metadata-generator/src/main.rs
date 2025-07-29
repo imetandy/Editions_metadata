@@ -1,10 +1,11 @@
 use clap::Parser;
-use std::{fs::File, io::{BufWriter, Write, Error}};
+use std::{fs::File, io::Error};
 
 
 pub mod constants;
 pub mod hasher;
 pub mod metadata_generator;
+pub mod file_analyzer;
 
 use metadata_generator::{MetadataGenerator, Metadata};
 
@@ -24,50 +25,113 @@ fn check_for_metadata_file() -> Result<(), Error> {
 
     if let Some(metadata_path) = &args.metadata {
         let metadata_file = File::open(metadata_path)?;
-        let metadata: Metadata = serde_json::from_reader(metadata_file)?;
+        let mut metadata: Metadata = serde_json::from_reader(metadata_file)?;
         println!("Metadata: {:?}", metadata);
 
-        // Serialize it to a JSON string.
-        let m = metadata;
-        // make a new file with the name as the title
-        let file = File::create(&(m.title.to_owned() + "_metadata.json"))?;
+        // Detect certificate of authenticity
+        let certificate_of_authenticity = metadata_generator::detect_certificate_of_authenticity(&args.path);
+        if certificate_of_authenticity.is_none() {
+            println!("Warning: No certificate of authenticity PDF found in 'certificate' folder");
+        } else {
+            println!("Certificate of authenticity found: {:?}", certificate_of_authenticity);
+        }
+        metadata.certificate_of_authenticity = certificate_of_authenticity;
 
-        let mut writer = BufWriter::new(file);
-        serde_json::to_writer_pretty(&mut writer, &m)?;
-        let _ = writer.flush();
+        // Use the unified metadata generator to process the folder
+        let generator = MetadataGenerator::new_cli()
+            .with_progress_callback(metadata_generator::ProgressCallback::Cli(Box::new(|message| {
+                println!("{}", message);
+            })));
+
+        let output_path = generator.generate_metadata(&args.path, &metadata)?;
+        println!("Metadata saved to: {}", output_path.display());
     } else {
         let mut metadata = Metadata {
-            date_created: "".to_string(),
-            title: "".to_string(),
-            creator: "".to_string(),
-            description: "".to_string(),
-            video_files: Vec::new(),
-            audio_files: Vec::new(),
+            artwork_id: "".to_string(),
+            artwork_title: "".to_string(),
+            artwork_short_title: "".to_string(),
+            artwork_creator: "".to_string(),
+            year_of_creation: 2024,
+            short_description: "".to_string(),
+            long_description: "".to_string(),
+            edition_number: 1,
+            total_editions: 1,
+            issue_date: "".to_string(),
+            gallery: "".to_string(),
+            keywords: Vec::new(),
+            medium: Vec::new(),
+            certificate_of_authenticity: None,
+            artwork_files: Vec::new(),
         };
 
         let mut user_input = Vec::new();
-        let user_date: String = "".to_string();
-        let user_title: String = "".to_string();
-        let user_creator: String = "".to_string();
-        let user_description: String = "".to_string();
-        user_input.push(user_date);
-        user_input.push(user_title);
-        user_input.push(user_creator);
-        user_input.push(user_description);
+        let user_artwork_id: String = "".to_string();
+        let user_artwork_title: String = "".to_string();
+        let user_artwork_short_title: String = "".to_string();
+        let user_artwork_creator: String = "".to_string();
+        let user_year_of_creation: String = "".to_string();
+        let user_short_description: String = "".to_string();
+        let user_long_description: String = "".to_string();
+        let user_edition_number: String = "".to_string();
+        let user_total_editions: String = "".to_string();
+        let user_issue_date: String = "".to_string();
+        let user_gallery: String = "".to_string();
+        let user_keywords: String = "".to_string();
+        let user_medium: String = "".to_string();
+        user_input.push(user_artwork_id);
+        user_input.push(user_artwork_title);
+        user_input.push(user_artwork_short_title);
+        user_input.push(user_artwork_creator);
+        user_input.push(user_year_of_creation);
+        user_input.push(user_short_description);
+        user_input.push(user_long_description);
+        user_input.push(user_edition_number);
+        user_input.push(user_total_editions);
+        user_input.push(user_issue_date);
+        user_input.push(user_gallery);
+        user_input.push(user_keywords);
+        user_input.push(user_medium);
 
         for (i, message) in user_input.iter_mut().enumerate() {
             match i {
                 0 => {
-                    println!("Enter the date the video was created: ");
+                    println!("Enter the artwork ID: ");
                 }
                 1 => {
-                    println!("Enter the title of the video: ");
+                    println!("Enter the artwork title: ");
                 }
                 2 => {
-                    println!("Enter the creator of the video: ");
+                    println!("Enter the artwork short title: ");
                 }
                 3 => {
-                    println!("Enter a description of the video: ");
+                    println!("Enter the artwork creator: ");
+                }
+                4 => {
+                    println!("Enter the year of creation: ");
+                }
+                5 => {
+                    println!("Enter the short description: ");
+                }
+                6 => {
+                    println!("Enter the long description: ");
+                }
+                7 => {
+                    println!("Enter the edition number: ");
+                }
+                8 => {
+                    println!("Enter the total editions: ");
+                }
+                9 => {
+                    println!("Enter the issue date (YYYY-MM-DD): ");
+                }
+                10 => {
+                    println!("Enter the gallery: ");
+                }
+                11 => {
+                    println!("Enter keywords (comma-separated): ");
+                }
+                12 => {
+                    println!("Enter medium (comma-separated): ");
                 }
                 _ => {
                     break;
@@ -84,11 +148,45 @@ fn check_for_metadata_file() -> Result<(), Error> {
             }
         }
 
+        // Parse keywords and medium from comma-separated strings
+        let keywords_vec: Vec<String> = user_input[11].split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        
+        let medium_vec: Vec<String> = user_input[12].split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        // Detect certificate of authenticity
+        let certificate_of_authenticity = metadata_generator::detect_certificate_of_authenticity(&args.path);
+        if certificate_of_authenticity.is_none() {
+            println!("Warning: No certificate of authenticity PDF found in 'certificate' folder");
+        } else {
+            println!("Certificate of authenticity found: {:?}", certificate_of_authenticity);
+        }
+
+        // Parse numeric fields
+        let year_of_creation_int = user_input[4].trim().parse::<i32>().unwrap_or(2024);
+        let edition_number_int = user_input[7].trim().parse::<i32>().unwrap_or(1);
+        let total_editions_int = user_input[8].trim().parse::<i32>().unwrap_or(1);
+
         // Add user input to metadata struct
-        metadata.date_created = user_input[0].clone().trim().to_string();
-        metadata.title = user_input[1].clone().trim().to_string();
-        metadata.creator = user_input[2].clone().trim().to_string();
-        metadata.description = user_input[3].clone().trim().to_string();
+        metadata.artwork_id = user_input[0].clone().trim().to_string();
+        metadata.artwork_title = user_input[1].clone().trim().to_string();
+        metadata.artwork_short_title = user_input[2].clone().trim().to_string();
+        metadata.artwork_creator = user_input[3].clone().trim().to_string();
+        metadata.year_of_creation = year_of_creation_int;
+        metadata.short_description = user_input[5].clone().trim().to_string();
+        metadata.long_description = user_input[6].clone().trim().to_string();
+        metadata.edition_number = edition_number_int;
+        metadata.total_editions = total_editions_int;
+        metadata.issue_date = user_input[9].clone().trim().to_string();
+        metadata.gallery = user_input[10].clone().trim().to_string();
+        metadata.keywords = keywords_vec;
+        metadata.medium = medium_vec;
+        metadata.certificate_of_authenticity = certificate_of_authenticity;
 
         // Use the unified metadata generator
         let generator = MetadataGenerator::new_cli()
