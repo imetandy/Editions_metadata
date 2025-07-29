@@ -72,6 +72,10 @@ cat > "${CONTENTS_DIR}/Info.plist" << EOF
     <string>A tool to create metadata for digital artwork editions</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
+    <key>NSRequiresAquaSystemAppearance</key>
+    <false/>
 </dict>
 </plist>
 EOF
@@ -85,10 +89,29 @@ elif [ -f "assets/icons/AppIcon.png" ]; then
     cp "assets/icons/AppIcon.png" "${RESOURCES_DIR}/AppIcon.png"
 fi
 
-# Make the app bundle executable
+# Set proper permissions
+echo -e "${YELLOW}Setting permissions...${NC}"
 chmod +x "${MACOS_DIR}/${APP_NAME}"
+chmod 755 "${APP_BUNDLE}"
+chmod 755 "${CONTENTS_DIR}"
+chmod 755 "${MACOS_DIR}"
+chmod 755 "${RESOURCES_DIR}"
+chmod 644 "${CONTENTS_DIR}/Info.plist"
+
+# Remove quarantine attribute (common cause of "damaged" apps)
+echo -e "${YELLOW}Removing quarantine attribute...${NC}"
+xattr -cr "${APP_BUNDLE}" 2>/dev/null || true
 
 echo -e "${GREEN}App bundle created: ${APP_BUNDLE}${NC}"
+
+# Test the app bundle
+echo -e "${YELLOW}Testing app bundle...${NC}"
+if [ -f "${MACOS_DIR}/${APP_NAME}" ]; then
+    echo -e "${GREEN}✓ Executable exists and is executable${NC}"
+else
+    echo -e "${RED}✗ Executable not found!${NC}"
+    exit 1
+fi
 
 # Create DMG installer
 DMG_NAME="${APP_NAME}-Installer"
@@ -130,6 +153,11 @@ create-dmg \
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ DMG installer created successfully: ${DMG_NAME}.dmg${NC}"
     echo -e "${BLUE}File size: $(du -h "${DMG_NAME}.dmg" | cut -f1)${NC}"
+    
+    # Remove quarantine from DMG as well
+    echo -e "${YELLOW}Removing quarantine from DMG...${NC}"
+    xattr -cr "${DMG_NAME}.dmg" 2>/dev/null || true
+    
     echo -e "${YELLOW}You can now distribute ${DMG_NAME}.dmg to your company!${NC}"
 else
     echo -e "${RED}✗ Failed to create DMG installer${NC}"
