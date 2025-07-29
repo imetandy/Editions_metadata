@@ -6,6 +6,13 @@ on:
       - 'v*'
   workflow_dispatch:
 
+# Set permissions for the workflow
+permissions:
+  contents: write
+  packages: write
+  issues: write
+  pull-requests: write
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -121,6 +128,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG || github.ref_name }}
+          target_commitish: master
           files: |
             artifacts/MetadataGenerator-windows-x64/MetadataGenerator-windows-x64.zip
             artifacts/MetadataGenerator-macos-x64/MetadataGenerator-macos-x64.zip
@@ -128,5 +136,4 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          token: ${{ secrets.GITHUB_TOKEN }} 
