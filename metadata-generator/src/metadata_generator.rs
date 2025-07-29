@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use crate::constants::should_ignore_file;
 use crate::hasher::UnifiedHasher;
 use crate::file_analyzer::analyze_file;
+use memmap;
+use blake3;
 
 /// Detects certificate of authenticity PDF files in a certificate folder
 /// Returns the relative path to the first PDF file found, or None if no PDF files exist
@@ -38,12 +40,8 @@ pub fn detect_certificate_of_authenticity(folder_path: &PathBuf) -> Option<Strin
 pub struct ArtworkFile {
     pub path: String,
     pub file_name: String,
-    #[serde(rename = "type")]
-    pub file_type: String,
     pub file_hash: String,
     pub file_size: u64,
-    pub resolution: Option<String>,
-    pub duration: Option<String>,
     pub format: String,
 }
 
@@ -64,7 +62,31 @@ pub struct Metadata {
     pub medium: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub certificate_of_authenticity: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub certificate_hash: Option<String>,
     pub artwork_files: Vec<ArtworkFile>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct VerificationResult {
+    pub file_name: String,
+    pub expected_hash: String,
+    pub actual_hash: String,
+    pub is_valid: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct VerificationReport {
+    pub metadata_file_hash: String,
+    pub total_files: usize,
+    pub valid_files: usize,
+    pub invalid_files: usize,
+    pub results: Vec<VerificationResult>,
+    pub metadata_file_valid: bool,
+    pub certificate_valid: Option<bool>,
+    pub certificate_hash: Option<String>,
+    pub overall_valid: bool,
 }
 
 #[allow(dead_code)]
@@ -147,8 +169,6 @@ impl MetadataGenerator {
                 let file_metadata = analyze_file(&path).unwrap_or_else(|_| {
                     // Fallback if analysis fails
                     crate::file_analyzer::FileMetadata {
-                        resolution: None,
-                        duration: None,
                         format: path.extension().unwrap_or_default().to_string_lossy().to_string().to_uppercase(),
                     }
                 });
@@ -156,11 +176,8 @@ impl MetadataGenerator {
                 let af = ArtworkFile {
                     path: relative_path,
                     file_name: file_name.clone(),
-                    file_type: file_metadata.format.clone(),
                     file_hash: hash,
                     file_size: path.metadata()?.len(),
-                    resolution: file_metadata.resolution,
-                    duration: file_metadata.duration,
                     format: file_metadata.format,
                 };
                 
@@ -176,6 +193,41 @@ impl MetadataGenerator {
                         callback(file_name, 1.0, overall_progress);
                     }
                     ProgressCallback::None => {}
+                }
+            }
+        }
+
+        // Hash certificate if it exists
+        if let Some(certificate_path) = &output_metadata.certificate_of_authenticity {
+            let certificate_full_path = folder_path.join(certificate_path.trim_start_matches("./"));
+            if certificate_full_path.exists() {
+                match self.hasher.hash_file(&certificate_full_path.to_string_lossy()) {
+                    Ok(certificate_hash) => {
+                        output_metadata.certificate_hash = Some(certificate_hash);
+                        
+                        // Report certificate hashing
+                        match &self.progress_callback {
+                            ProgressCallback::Cli(callback) => {
+                                callback(format!("Certificate hashed: {}", certificate_path));
+                            }
+                            ProgressCallback::Gui(callback) => {
+                                callback("Certificate".to_string(), 1.0, 1.0);
+                            }
+                            ProgressCallback::None => {}
+                        }
+                    }
+                    Err(e) => {
+                        // Log error but continue
+                        match &self.progress_callback {
+                            ProgressCallback::Cli(callback) => {
+                                callback(format!("Warning: Could not hash certificate: {}", e));
+                            }
+                            ProgressCallback::Gui(callback) => {
+                                callback("Certificate error".to_string(), 1.0, 1.0);
+                            }
+                            ProgressCallback::None => {}
+                        }
+                    }
                 }
             }
         }
@@ -258,8 +310,6 @@ impl MetadataGenerator {
                 let file_metadata = analyze_file(&path).unwrap_or_else(|_| {
                     // Fallback if analysis fails
                     crate::file_analyzer::FileMetadata {
-                        resolution: None,
-                        duration: None,
                         format: path.extension().unwrap_or_default().to_string_lossy().to_string().to_uppercase(),
                     }
                 });
@@ -267,11 +317,8 @@ impl MetadataGenerator {
                 let af = ArtworkFile {
                     path: relative_path,
                     file_name: file_name.clone(),
-                    file_type: file_metadata.format.clone(),
                     file_hash: hash,
                     file_size: path.metadata()?.len(),
-                    resolution: file_metadata.resolution,
-                    duration: file_metadata.duration,
                     format: file_metadata.format,
                 };
                 
@@ -291,6 +338,41 @@ impl MetadataGenerator {
             }
         }
 
+        // Hash certificate if it exists
+        if let Some(certificate_path) = &output_metadata.certificate_of_authenticity {
+            let certificate_full_path = folder_path.join(certificate_path.trim_start_matches("./"));
+            if certificate_full_path.exists() {
+                match self.hasher.hash_file(&certificate_full_path.to_string_lossy()) {
+                    Ok(certificate_hash) => {
+                        output_metadata.certificate_hash = Some(certificate_hash);
+                        
+                        // Report certificate hashing
+                        match &self.progress_callback {
+                            ProgressCallback::Cli(callback) => {
+                                callback(format!("Certificate hashed: {}", certificate_path));
+                            }
+                            ProgressCallback::Gui(callback) => {
+                                callback("Certificate".to_string(), 1.0, 1.0);
+                            }
+                            ProgressCallback::None => {}
+                        }
+                    }
+                    Err(e) => {
+                        // Log error but continue
+                        match &self.progress_callback {
+                            ProgressCallback::Cli(callback) => {
+                                callback(format!("Warning: Could not hash certificate: {}", e));
+                            }
+                            ProgressCallback::Gui(callback) => {
+                                callback("Certificate error".to_string(), 1.0, 1.0);
+                            }
+                            ProgressCallback::None => {}
+                        }
+                    }
+                }
+            }
+        }
+
         // Save metadata to file
         let file_name = format!("{}_metadata.json", metadata.artwork_title.replace(' ', "_"));
         let output = folder_path.join(file_name);
@@ -300,5 +382,342 @@ impl MetadataGenerator {
         writer.flush()?;
 
         Ok(output)
+    }
+
+    /// Fingerprints the metadata file itself using BLAKE3
+    pub fn fingerprint_metadata_file(&self, metadata_path: &PathBuf) -> std::io::Result<String> {
+        let file = File::open(metadata_path)?;
+        let mmap = unsafe { memmap::Mmap::map(&file)? };
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(&mmap);
+        let hash = hasher.finalize();
+        Ok(hash.to_hex().to_string())
+    }
+
+    /// Verifies all files in a metadata file against their recorded hashes
+    pub fn verify_metadata_file(
+        &self,
+        metadata_path: &PathBuf,
+        base_folder: &PathBuf,
+    ) -> std::io::Result<VerificationReport> {
+        // Read and parse the metadata file
+        let metadata_content = fs::read_to_string(metadata_path)?;
+        let metadata: Metadata = serde_json::from_str(&metadata_content)?;
+
+        // Fingerprint the metadata file itself
+        let metadata_file_hash = self.fingerprint_metadata_file(metadata_path)?;
+
+        let mut results = Vec::new();
+        let mut valid_files = 0;
+        let mut invalid_files = 0;
+
+        // Verify each file
+        for artwork_file in &metadata.artwork_files {
+            let file_path = base_folder.join(&artwork_file.file_name);
+            
+            let verification_result = if file_path.exists() {
+                // Hash the actual file
+                match self.hasher.hash_file(&file_path.to_string_lossy()) {
+                    Ok(actual_hash) => {
+                        let is_valid = actual_hash == artwork_file.file_hash;
+                        if is_valid {
+                            valid_files += 1;
+                        } else {
+                            invalid_files += 1;
+                        }
+                        
+                        VerificationResult {
+                            file_name: artwork_file.file_name.clone(),
+                            expected_hash: artwork_file.file_hash.clone(),
+                            actual_hash,
+                            is_valid,
+                            error: None,
+                        }
+                    }
+                    Err(e) => {
+                        invalid_files += 1;
+                        VerificationResult {
+                            file_name: artwork_file.file_name.clone(),
+                            expected_hash: artwork_file.file_hash.clone(),
+                            actual_hash: String::new(),
+                            is_valid: false,
+                            error: Some(e.to_string()),
+                        }
+                    }
+                }
+            } else {
+                invalid_files += 1;
+                VerificationResult {
+                    file_name: artwork_file.file_name.clone(),
+                    expected_hash: artwork_file.file_hash.clone(),
+                    actual_hash: String::new(),
+                    is_valid: false,
+                    error: Some("File not found".to_string()),
+                }
+            };
+            
+            results.push(verification_result);
+        }
+
+        let total_files = results.len();
+        
+        // Verify certificate if it exists
+        let mut certificate_valid = None;
+        let mut certificate_hash = None;
+        
+        if let Some(certificate_path) = &metadata.certificate_of_authenticity {
+            let certificate_full_path = base_folder.join(certificate_path.trim_start_matches("./"));
+            if certificate_full_path.exists() {
+                match self.hasher.hash_file(&certificate_full_path.to_string_lossy()) {
+                    Ok(actual_certificate_hash) => {
+                        certificate_hash = Some(actual_certificate_hash.clone());
+                        if let Some(expected_certificate_hash) = &metadata.certificate_hash {
+                            certificate_valid = Some(actual_certificate_hash == *expected_certificate_hash);
+                        } else {
+                            certificate_valid = Some(false); // No expected hash recorded
+                        }
+                    }
+                    Err(_) => {
+                        certificate_valid = Some(false); // Could not hash certificate
+                    }
+                }
+            } else {
+                certificate_valid = Some(false); // Certificate file not found
+            }
+        }
+        
+        // Overall validity includes certificate validity
+        let overall_valid = invalid_files == 0 && certificate_valid.unwrap_or(true);
+
+        Ok(VerificationReport {
+            metadata_file_hash,
+            total_files,
+            valid_files,
+            invalid_files,
+            results,
+            metadata_file_valid: true, // We successfully read it, so it's valid
+            certificate_valid,
+            certificate_hash,
+            overall_valid,
+        })
+    }
+
+    /// Verifies metadata file with progress reporting
+    pub fn verify_metadata_file_with_progress(
+        &self,
+        metadata_path: &PathBuf,
+        base_folder: &PathBuf,
+    ) -> std::io::Result<VerificationReport> {
+        // Read and parse the metadata file
+        let metadata_content = fs::read_to_string(metadata_path)?;
+        let metadata: Metadata = serde_json::from_str(&metadata_content)?;
+
+        // Fingerprint the metadata file itself
+        let metadata_file_hash = self.fingerprint_metadata_file(metadata_path)?;
+
+        let mut results = Vec::new();
+        let mut valid_files = 0;
+        let mut invalid_files = 0;
+        let total_files = metadata.artwork_files.len();
+
+        // Verify each file with progress reporting
+        for (index, artwork_file) in metadata.artwork_files.iter().enumerate() {
+            let file_path = base_folder.join(&artwork_file.file_name);
+            
+            // Report progress
+            match &self.progress_callback {
+                ProgressCallback::Cli(callback) => {
+                    callback(format!("Verifying file: {} ({}/{})", artwork_file.file_name, index + 1, total_files));
+                }
+                ProgressCallback::Gui(callback) => {
+                    let overall_progress = index as f32 / total_files as f32;
+                    callback(artwork_file.file_name.clone(), 0.0, overall_progress);
+                }
+                ProgressCallback::None => {}
+            }
+            
+            let verification_result = if file_path.exists() {
+                // Hash the actual file
+                match self.hasher.hash_file(&file_path.to_string_lossy()) {
+                    Ok(actual_hash) => {
+                        let is_valid = actual_hash == artwork_file.file_hash;
+                        if is_valid {
+                            valid_files += 1;
+                        } else {
+                            invalid_files += 1;
+                        }
+                        
+                        // Report completion
+                        match &self.progress_callback {
+                            ProgressCallback::Cli(callback) => {
+                                callback(format!("Verified: {} - {}", 
+                                    artwork_file.file_name, 
+                                    if is_valid { "VALID" } else { "INVALID" }
+                                ));
+                            }
+                            ProgressCallback::Gui(callback) => {
+                                let overall_progress = (index + 1) as f32 / total_files as f32;
+                                callback(artwork_file.file_name.clone(), 1.0, overall_progress);
+                            }
+                            ProgressCallback::None => {}
+                        }
+                        
+                        VerificationResult {
+                            file_name: artwork_file.file_name.clone(),
+                            expected_hash: artwork_file.file_hash.clone(),
+                            actual_hash,
+                            is_valid,
+                            error: None,
+                        }
+                    }
+                    Err(e) => {
+                        invalid_files += 1;
+                        
+                        // Report error
+                        match &self.progress_callback {
+                            ProgressCallback::Cli(callback) => {
+                                callback(format!("Error verifying: {} - {}", artwork_file.file_name, e));
+                            }
+                            ProgressCallback::Gui(callback) => {
+                                let overall_progress = (index + 1) as f32 / total_files as f32;
+                                callback(artwork_file.file_name.clone(), 1.0, overall_progress);
+                            }
+                            ProgressCallback::None => {}
+                        }
+                        
+                        VerificationResult {
+                            file_name: artwork_file.file_name.clone(),
+                            expected_hash: artwork_file.file_hash.clone(),
+                            actual_hash: String::new(),
+                            is_valid: false,
+                            error: Some(e.to_string()),
+                        }
+                    }
+                }
+            } else {
+                invalid_files += 1;
+                
+                // Report missing file
+                match &self.progress_callback {
+                    ProgressCallback::Cli(callback) => {
+                        callback(format!("Missing file: {}", artwork_file.file_name));
+                    }
+                    ProgressCallback::Gui(callback) => {
+                        let overall_progress = (index + 1) as f32 / total_files as f32;
+                        callback(artwork_file.file_name.clone(), 1.0, overall_progress);
+                    }
+                    ProgressCallback::None => {}
+                }
+                
+                VerificationResult {
+                    file_name: artwork_file.file_name.clone(),
+                    expected_hash: artwork_file.file_hash.clone(),
+                    actual_hash: String::new(),
+                    is_valid: false,
+                    error: Some("File not found".to_string()),
+                }
+            };
+            
+            results.push(verification_result);
+        }
+
+        // Verify certificate if it exists
+        let mut certificate_valid = None;
+        let mut certificate_hash = None;
+        
+        if let Some(certificate_path) = &metadata.certificate_of_authenticity {
+            let certificate_full_path = base_folder.join(certificate_path.trim_start_matches("./"));
+            
+            // Report certificate verification
+            match &self.progress_callback {
+                ProgressCallback::Cli(callback) => {
+                    callback(format!("Verifying certificate: {}", certificate_path));
+                }
+                ProgressCallback::Gui(callback) => {
+                    callback("Certificate".to_string(), 0.0, 1.0);
+                }
+                ProgressCallback::None => {}
+            }
+            
+            if certificate_full_path.exists() {
+                match self.hasher.hash_file(&certificate_full_path.to_string_lossy()) {
+                    Ok(actual_certificate_hash) => {
+                        certificate_hash = Some(actual_certificate_hash.clone());
+                        if let Some(expected_certificate_hash) = &metadata.certificate_hash {
+                            certificate_valid = Some(actual_certificate_hash == *expected_certificate_hash);
+                            
+                            // Report certificate result
+                            match &self.progress_callback {
+                                ProgressCallback::Cli(callback) => {
+                                    callback(format!("Certificate verified: {} - {}", 
+                                        certificate_path, 
+                                        if certificate_valid.unwrap() { "VALID" } else { "INVALID" }
+                                    ));
+                                }
+                                ProgressCallback::Gui(callback) => {
+                                    callback("Certificate".to_string(), 1.0, 1.0);
+                                }
+                                ProgressCallback::None => {}
+                            }
+                        } else {
+                            certificate_valid = Some(false); // No expected hash recorded
+                            
+                            // Report missing expected hash
+                            match &self.progress_callback {
+                                ProgressCallback::Cli(callback) => {
+                                    callback(format!("Certificate error: No expected hash recorded for {}", certificate_path));
+                                }
+                                ProgressCallback::Gui(callback) => {
+                                    callback("Certificate".to_string(), 1.0, 1.0);
+                                }
+                                ProgressCallback::None => {}
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        certificate_valid = Some(false); // Could not hash certificate
+                        
+                        // Report certificate error
+                        match &self.progress_callback {
+                            ProgressCallback::Cli(callback) => {
+                                callback(format!("Certificate error: Could not hash {} - {}", certificate_path, e));
+                            }
+                            ProgressCallback::Gui(callback) => {
+                                callback("Certificate".to_string(), 1.0, 1.0);
+                            }
+                            ProgressCallback::None => {}
+                        }
+                    }
+                }
+            } else {
+                certificate_valid = Some(false); // Certificate file not found
+                
+                // Report missing certificate
+                match &self.progress_callback {
+                    ProgressCallback::Cli(callback) => {
+                        callback(format!("Certificate not found: {}", certificate_path));
+                    }
+                    ProgressCallback::Gui(callback) => {
+                        callback("Certificate".to_string(), 1.0, 1.0);
+                    }
+                    ProgressCallback::None => {}
+                }
+            }
+        }
+        
+        // Overall validity includes certificate validity
+        let overall_valid = invalid_files == 0 && certificate_valid.unwrap_or(true);
+
+        Ok(VerificationReport {
+            metadata_file_hash,
+            total_files,
+            valid_files,
+            invalid_files,
+            results,
+            metadata_file_valid: true, // We successfully read it, so it's valid
+            certificate_valid,
+            certificate_hash,
+            overall_valid,
+        })
     }
 } 

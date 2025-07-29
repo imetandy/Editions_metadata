@@ -14,7 +14,7 @@ mod metadata_generator;
 #[path = "../file_analyzer.rs"]
 mod file_analyzer;
 
-use metadata_generator::{MetadataGenerator, Metadata, ProgressCallback};
+use metadata_generator::{MetadataGenerator, Metadata, ProgressCallback, VerificationReport};
 
 #[derive(Clone)]
 enum GenerationState {
@@ -30,7 +30,31 @@ enum GenerationState {
     Error { message: String },
 }
 
+#[derive(Clone)]
+enum VerificationState {
+    Idle,
+    Processing { 
+        current_file: String, 
+        file_progress: f32,
+        overall_progress: f32, 
+        total_files: usize, 
+        processed_files: usize 
+    },
+    Complete { report: VerificationReport },
+    Error { message: String },
+}
+
+#[derive(PartialEq)]
+enum Tab {
+    Generate,
+    Verify,
+}
+
 struct GuiApp {
+    // Tab management
+    selected_tab: Tab,
+    
+    // Generate tab fields
     folder: Option<PathBuf>,
     artwork_id: String,
     artwork_title: String,
@@ -48,11 +72,17 @@ struct GuiApp {
     status: String,
     certificate_warning: String,
     generation_state: Arc<Mutex<GenerationState>>,
+    
+    // Verify tab fields
+    metadata_file: Option<PathBuf>,
+    base_folder: Option<PathBuf>,
+    verification_state: Arc<Mutex<VerificationState>>,
 }
 
 impl Default for GuiApp {
     fn default() -> Self {
         Self {
+            selected_tab: Tab::Generate,
             folder: None,
             artwork_id: String::new(),
             artwork_title: String::new(),
@@ -70,6 +100,9 @@ impl Default for GuiApp {
             status: String::new(),
             certificate_warning: String::new(),
             generation_state: Arc::new(Mutex::new(GenerationState::Idle)),
+            metadata_file: None,
+            base_folder: None,
+            verification_state: Arc::new(Mutex::new(VerificationState::Idle)),
         }
     }
 }
@@ -78,6 +111,39 @@ impl App for GuiApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Metadata Generator");
+            
+            // Tab selection
+            ui.horizontal(|ui| {
+                ui.selectable_value(&mut self.selected_tab, Tab::Generate, "Generate");
+                ui.selectable_value(&mut self.selected_tab, Tab::Verify, "Verify");
+            });
+            
+            ui.separator();
+            
+            match self.selected_tab {
+                Tab::Generate => self.render_generate_tab(ui),
+                Tab::Verify => self.render_verify_tab(ui),
+            }
+            
+            // Request continuous updates when processing
+            if let Ok(state) = self.generation_state.lock() {
+                if matches!(&*state, GenerationState::Processing { .. }) {
+                    ctx.request_repaint();
+                }
+            }
+            if let Ok(state) = self.verification_state.lock() {
+                if matches!(&*state, VerificationState::Processing { .. }) {
+                    ctx.request_repaint();
+                }
+            }
+        });
+    }
+}
+
+impl GuiApp {
+    fn render_generate_tab(&mut self, ui: &mut egui::Ui) {
+        // Wrap the entire content in a scrollable area
+        egui::ScrollArea::vertical().max_height(f32::INFINITY).show(ui, |ui| {
             if ui.button("Browse for folder").clicked() {
                 if let Some(dir) = FileDialog::new().pick_folder() {
                     self.folder = Some(dir.clone());
@@ -169,18 +235,136 @@ impl App for GuiApp {
                     }
                 }
             }
+        });
+    }
 
-            // Request continuous updates when processing
-            if let Ok(state) = self.generation_state.lock() {
-                if matches!(&*state, GenerationState::Processing { .. }) {
-                    ctx.request_repaint();
+    fn render_verify_tab(&mut self, ui: &mut egui::Ui) {
+        // Wrap the entire content in a scrollable area
+        egui::ScrollArea::vertical().max_height(f32::INFINITY).show(ui, |ui| {
+            ui.label("Verify Metadata and Files");
+            ui.add_space(10.0);
+            
+            // File selection
+            ui.label("Select metadata file:");
+            if ui.button("Browse for metadata file").clicked() {
+                if let Some(file) = FileDialog::new()
+                    .add_filter("JSON files", &["json"])
+                    .pick_file() {
+                    self.metadata_file = Some(file.clone());
+                    
+                    // Try to auto-detect base folder (same directory as metadata file)
+                    if let Some(parent) = file.parent() {
+                        self.base_folder = Some(parent.to_path_buf());
+                    }
+                }
+            }
+            if let Some(metadata_file) = &self.metadata_file {
+                ui.label(format!("Metadata file: {}", metadata_file.display()));
+            }
+            
+            ui.add_space(10.0);
+            
+            // Base folder selection
+            ui.label("Select base folder (where the artwork files are located):");
+            if ui.button("Browse for base folder").clicked() {
+                if let Some(dir) = FileDialog::new().pick_folder() {
+                    self.base_folder = Some(dir);
+                }
+            }
+            if let Some(base_folder) = &self.base_folder {
+                ui.label(format!("Base folder: {}", base_folder.display()));
+            }
+            
+            ui.add_space(10.0);
+            
+            // Check if we can start verification
+            let can_verify = self.metadata_file.is_some() && self.base_folder.is_some();
+            
+            if ui.add_enabled(can_verify, egui::Button::new("Verify files")).clicked() {
+                self.start_verification();
+            }
+            
+            ui.separator();
+            
+            // Show verification progress and results
+            if let Ok(state) = self.verification_state.lock() {
+                match &*state {
+                    VerificationState::Idle => {
+                        ui.label("Select a metadata file and base folder to start verification.");
+                    }
+                    VerificationState::Processing { current_file, file_progress, overall_progress, total_files, processed_files } => {
+                        ui.label(format!("Verifying: {}/{} files", processed_files + 1, total_files));
+                        ui.label(format!("Current file: {}", current_file));
+                        ui.add_space(5.0);
+                        
+                        ui.label("File progress:");
+                        ui.add(egui::ProgressBar::new(*file_progress).show_percentage());
+                        
+                        ui.add_space(5.0);
+                        ui.label("Overall progress:");
+                        ui.add(egui::ProgressBar::new(*overall_progress).show_percentage());
+                        ui.label(format!("Overall progress: {:.1}%", overall_progress * 100.0));
+                    }
+                    VerificationState::Complete { report } => {
+                        ui.label("✅ Verification complete!");
+                        ui.add_space(10.0);
+                        
+                        // Summary
+                        ui.label(format!("Metadata file hash: {}", report.metadata_file_hash));
+                        ui.label(format!("Total files: {}", report.total_files));
+                        ui.label(format!("Valid files: {}", report.valid_files));
+                        ui.label(format!("Invalid files: {}", report.invalid_files));
+                        
+                        // Certificate verification
+                        if let Some(certificate_valid) = report.certificate_valid {
+                            if certificate_valid {
+                                ui.colored_label(egui::Color32::from_rgb(0, 255, 0), "✅ Certificate is valid!");
+                            } else {
+                                ui.colored_label(egui::Color32::from_rgb(255, 0, 0), "❌ Certificate is invalid!");
+                            }
+                            if let Some(certificate_hash) = &report.certificate_hash {
+                                ui.label(format!("Certificate hash: {}", certificate_hash));
+                            }
+                        } else {
+                            ui.label("ℹ️ No certificate found");
+                        }
+                        
+                        if report.overall_valid {
+                            ui.colored_label(egui::Color32::from_rgb(0, 255, 0), "✅ All files and certificate are valid!");
+                        } else {
+                            ui.colored_label(egui::Color32::from_rgb(255, 0, 0), "❌ Some files or certificate are invalid!");
+                        }
+                        
+                        ui.add_space(10.0);
+                        
+                        // Detailed results
+                        ui.label("Detailed Results:");
+                        egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
+                            for result in &report.results {
+                                ui.horizontal(|ui| {
+                                    if result.is_valid {
+                                        ui.label("✅");
+                                    } else {
+                                        ui.label("❌");
+                                    }
+                                    ui.label(&result.file_name);
+                                    if !result.is_valid {
+                                        if let Some(error) = &result.error {
+                                            ui.colored_label(egui::Color32::from_rgb(255, 0, 0), error);
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                    }
+                    VerificationState::Error { message } => {
+                        ui.label(format!("❌ Error: {}", message));
+                    }
                 }
             }
         });
     }
-}
 
-impl GuiApp {
     fn start_generation(&self) {
         let folder = self.folder.clone();
         let artwork_id = self.artwork_id.clone();
@@ -240,6 +424,7 @@ impl GuiApp {
                 keywords: keywords_vec,
                 medium: medium_vec,
                 certificate_of_authenticity,
+                certificate_hash: None,
                 artwork_files: Vec::new(),
             };
 
@@ -273,10 +458,54 @@ impl GuiApp {
             }
         });
     }
+
+    fn start_verification(&self) {
+        let metadata_file = self.metadata_file.clone();
+        let base_folder = self.base_folder.clone();
+        let verification_state = Arc::clone(&self.verification_state);
+
+        thread::spawn(move || {
+            let verification_state_clone = Arc::clone(&verification_state);
+            
+            // Create generator with GUI progress callback
+            let generator = MetadataGenerator::new_gui()
+                .with_progress_callback(ProgressCallback::Gui(Box::new(move |current_file, file_progress, overall_progress| {
+                    if let Ok(mut state) = verification_state_clone.lock() {
+                        *state = VerificationState::Processing {
+                            current_file,
+                            file_progress,
+                            overall_progress,
+                            total_files: 0, // Will be updated
+                            processed_files: (overall_progress * 100.0) as usize,
+                        };
+                    }
+                })));
+
+            match generator.verify_metadata_file_with_progress(&metadata_file.unwrap(), &base_folder.unwrap()) {
+                Ok(report) => {
+                    if let Ok(mut state) = verification_state.lock() {
+                        *state = VerificationState::Complete { report };
+                    }
+                }
+                Err(e) => {
+                    if let Ok(mut state) = verification_state.lock() {
+                        *state = VerificationState::Error {
+                            message: e.to_string(),
+                        };
+                    }
+                }
+            }
+        });
+    }
 }
 
 fn main() -> Result<(), eframe::Error> {
     let app = GuiApp::default();
-    let native_options = eframe::NativeOptions::default();
+    let native_options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([800.0, 700.0])
+            .with_min_inner_size([600.0, 500.0]),
+        ..Default::default()
+    };
     eframe::run_native("Metadata Generator", native_options, Box::new(|_cc| Box::new(app)))
 }

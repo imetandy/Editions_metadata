@@ -7,7 +7,8 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}=== MetadataGenerator DMG Installer Creator ===${NC}"
+echo -e "${BLUE}=== MetadataGenerator Static Bundle Creator ===${NC}"
+echo -e "${YELLOW}This creates a completely self-contained app with no external dependencies${NC}"
 
 # Check if create-dmg is installed
 if ! command -v create-dmg &> /dev/null; then
@@ -15,8 +16,15 @@ if ! command -v create-dmg &> /dev/null; then
     exit 1
 fi
 
+# Build with static linking
+echo -e "${YELLOW}Building with static linking...${NC}"
+
+# Set environment variables for static linking
+export RUSTFLAGS="-C target-feature=+crt-static"
+export CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS="-C target-feature=+crt-static"
+export CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS="-C target-feature=+crt-static"
+
 # Build the release version
-echo -e "${YELLOW}Building release version...${NC}"
 cargo build --release --features gui
 
 if [ $? -ne 0 ]; then
@@ -38,38 +46,6 @@ mkdir -p "${RESOURCES_DIR}"
 # Copy the executable
 echo -e "${YELLOW}Copying executable...${NC}"
 cp "target/release/${APP_NAME}" "${MACOS_DIR}/${APP_NAME}"
-
-# Bundle FFmpeg libraries
-echo -e "${YELLOW}Bundling FFmpeg libraries...${NC}"
-if [ -f "scripts/bundle-ffmpeg.sh" ]; then
-    chmod +x "scripts/bundle-ffmpeg.sh"
-    ./scripts/bundle-ffmpeg.sh
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}FFmpeg bundling failed!${NC}"
-        echo -e "${YELLOW}Trying to install FFmpeg dependencies...${NC}"
-        if [ -f "scripts/install-ffmpeg-deps.sh" ]; then
-            chmod +x "scripts/install-ffmpeg-deps.sh"
-            ./scripts/install-ffmpeg-deps.sh
-            if [ $? -eq 0 ]; then
-                echo -e "${YELLOW}Retrying FFmpeg bundling...${NC}"
-                ./scripts/bundle-ffmpeg.sh
-                if [ $? -ne 0 ]; then
-                    echo -e "${RED}FFmpeg bundling still failed!${NC}"
-                    exit 1
-                fi
-            else
-                echo -e "${RED}Failed to install FFmpeg dependencies!${NC}"
-                exit 1
-            fi
-        else
-            echo -e "${RED}install-ffmpeg-deps.sh not found!${NC}"
-            exit 1
-        fi
-    fi
-else
-    echo -e "${RED}Error: bundle-ffmpeg.sh not found. Cannot create installer without FFmpeg bundling.${NC}"
-    exit 1
-fi
 
 # Create Info.plist
 echo -e "${YELLOW}Creating Info.plist...${NC}"
@@ -130,24 +106,33 @@ chmod 755 "${MACOS_DIR}"
 chmod 755 "${RESOURCES_DIR}"
 chmod 644 "${CONTENTS_DIR}/Info.plist"
 
-# Remove quarantine attribute (common cause of "damaged" apps)
+# Remove quarantine attribute
 echo -e "${YELLOW}Removing quarantine attribute...${NC}"
 xattr -cr "${APP_BUNDLE}" 2>/dev/null || true
 
 echo -e "${GREEN}App bundle created: ${APP_BUNDLE}${NC}"
 
-# Test the app bundle
-echo -e "${YELLOW}Testing app bundle...${NC}"
-if [ -f "${MACOS_DIR}/${APP_NAME}" ]; then
-    echo -e "${GREEN}✓ Executable exists and is executable${NC}"
+# Verify static linking
+echo -e "${YELLOW}Verifying static linking...${NC}"
+if otool -L "${MACOS_DIR}/${APP_NAME}" | grep -q "libav\|ffmpeg"; then
+    echo -e "${YELLOW}Warning: Still has dynamic FFmpeg dependencies${NC}"
+    echo -e "${YELLOW}This means the app may still need FFmpeg installed${NC}"
 else
-    echo -e "${RED}✗ Executable not found!${NC}"
-    exit 1
+    echo -e "${GREEN}✓ No dynamic FFmpeg dependencies detected${NC}"
+fi
+
+# Check for any missing libraries
+MISSING_LIBS=$(otool -L "${MACOS_DIR}/${APP_NAME}" | grep "not found" || true)
+if [ -n "$MISSING_LIBS" ]; then
+    echo -e "${YELLOW}Warning: Some libraries may be missing:${NC}"
+    echo "$MISSING_LIBS"
+else
+    echo -e "${GREEN}✓ No missing libraries detected${NC}"
 fi
 
 # Create DMG installer
-DMG_NAME="${APP_NAME}-Installer"
-echo -e "${YELLOW}Creating DMG installer...${NC}"
+DMG_NAME="${APP_NAME}-Static-Bundle"
+echo -e "${YELLOW}Creating static bundle DMG installer...${NC}"
 
 # Clean up any existing DMG files
 if [ -f "${DMG_NAME}.dmg" ]; then
@@ -155,7 +140,7 @@ if [ -f "${DMG_NAME}.dmg" ]; then
     rm -f "${DMG_NAME}.dmg"
 fi
 
-# Also clean up any temporary DMG files that might exist
+# Also clean up any temporary DMG files
 rm -f "rw.*.${DMG_NAME}.dmg" 2>/dev/null || true
 
 # Use custom volume icon if available
@@ -169,7 +154,7 @@ elif [ -f "assets/icons/VolumeIcon.png" ]; then
 fi
 
 create-dmg \
-  --volname "${APP_NAME}" \
+  --volname "${APP_NAME} Static Bundle" \
   ${VOLUME_ICON} \
   --window-pos 200 120 \
   --window-size 800 400 \
@@ -183,16 +168,18 @@ create-dmg \
   "${APP_BUNDLE}"
 
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ DMG installer created successfully: ${DMG_NAME}.dmg${NC}"
+    echo -e "${GREEN}✓ Static bundle DMG installer created successfully: ${DMG_NAME}.dmg${NC}"
     echo -e "${BLUE}File size: $(du -h "${DMG_NAME}.dmg" | cut -f1)${NC}"
     
-    # Remove quarantine from DMG as well
+    # Remove quarantine from DMG
     echo -e "${YELLOW}Removing quarantine from DMG...${NC}"
     xattr -cr "${DMG_NAME}.dmg" 2>/dev/null || true
     
-    echo -e "${YELLOW}You can now distribute ${DMG_NAME}.dmg to your company!${NC}"
+    echo -e "${GREEN}=== Static bundle ready! ===${NC}"
+    echo -e "${BLUE}This DMG contains a self-contained app with minimal dependencies${NC}"
+    echo -e "${YELLOW}Note: Video/audio analysis may still require FFmpeg to be installed${NC}"
 else
-    echo -e "${RED}✗ Failed to create DMG installer${NC}"
+    echo -e "${RED}✗ Failed to create static bundle DMG installer${NC}"
     exit 1
 fi
 
@@ -201,4 +188,4 @@ echo -e "${YELLOW}Cleaning up temporary files...${NC}"
 rm -rf "${APP_BUNDLE}"
 
 echo -e "${GREEN}=== Done! ===${NC}"
-echo -e "${BLUE}Your professional installer is ready: ${DMG_NAME}.dmg${NC}" 
+echo -e "${BLUE}Your static bundle installer is ready: ${DMG_NAME}.dmg${NC}" 

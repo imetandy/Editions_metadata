@@ -16,9 +16,73 @@ struct Cli {
 
     #[arg(short = 'm', long = "metadata")]
     metadata: Option<std::path::PathBuf>,
+
+    #[arg(short = 'v', long = "verify")]
+    verify: bool,
+
+    #[arg(short = 'f', long = "metadata-file")]
+    metadata_file: Option<std::path::PathBuf>,
 }
 
+fn verify_metadata() -> Result<(), Error> {
+    let args = Cli::parse();
+    
+    let metadata_file = args.metadata_file.ok_or_else(|| {
+        Error::new(std::io::ErrorKind::InvalidInput, "Metadata file path is required for verification")
+    })?;
+    
+    println!("Verifying metadata file: {}", metadata_file.display());
+    println!("Base folder: {}", args.path.display());
+    
+    let generator = MetadataGenerator::new_cli()
+        .with_progress_callback(metadata_generator::ProgressCallback::Cli(Box::new(|message| {
+            println!("{}", message);
+        })));
 
+    match generator.verify_metadata_file_with_progress(&metadata_file, &args.path) {
+        Ok(report) => {
+            println!("\n=== Verification Complete ===");
+            println!("Metadata file hash: {}", report.metadata_file_hash);
+            println!("Total files: {}", report.total_files);
+            println!("Valid files: {}", report.valid_files);
+            println!("Invalid files: {}", report.invalid_files);
+            
+            // Certificate verification
+            if let Some(certificate_valid) = report.certificate_valid {
+                if certificate_valid {
+                    println!("✅ Certificate is valid!");
+                } else {
+                    println!("❌ Certificate is invalid!");
+                }
+                if let Some(certificate_hash) = &report.certificate_hash {
+                    println!("Certificate hash: {}", certificate_hash);
+                }
+            } else {
+                println!("ℹ️ No certificate found");
+            }
+            
+            if report.overall_valid {
+                println!("✅ All files and certificate are valid!");
+            } else {
+                println!("❌ Some files or certificate are invalid!");
+                println!("\nDetailed Results:");
+                for result in &report.results {
+                    if result.is_valid {
+                        println!("✅ {}", result.file_name);
+                    } else {
+                        println!("❌ {} - {}", result.file_name, result.error.as_deref().unwrap_or("Unknown error"));
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("❌ Verification failed: {}", e);
+            return Err(e);
+        }
+    }
+    
+    Ok(())
+}
 
 fn check_for_metadata_file() -> Result<(), Error> {
     let args = Cli::parse();
@@ -61,6 +125,7 @@ fn check_for_metadata_file() -> Result<(), Error> {
             keywords: Vec::new(),
             medium: Vec::new(),
             certificate_of_authenticity: None,
+            certificate_hash: None,
             artwork_files: Vec::new(),
         };
 
@@ -201,9 +266,12 @@ fn check_for_metadata_file() -> Result<(), Error> {
 }
 
 fn main() -> Result<(), Error> {
-    // get metadata from user
-    check_for_metadata_file()?;
-
-    Ok(())
+    let args = Cli::parse();
+    
+    if args.verify {
+        verify_metadata()
+    } else {
+        check_for_metadata_file()
+    }
 }   
 

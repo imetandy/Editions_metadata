@@ -21,9 +21,24 @@ if ! brew list ffmpeg &> /dev/null; then
     brew install ffmpeg
 fi
 
-# Get FFmpeg installation path
-FFMPEG_PATH=$(brew --prefix ffmpeg)
-echo -e "${BLUE}FFmpeg path: ${FFMPEG_PATH}${NC}"
+# Get FFmpeg installation path - try multiple locations
+FFMPEG_PATH=""
+
+# First try Homebrew
+if brew list ffmpeg &> /dev/null; then
+    FFMPEG_PATH=$(brew --prefix ffmpeg)
+    echo -e "${BLUE}FFmpeg found via Homebrew at: ${FFMPEG_PATH}${NC}"
+# Then try Applications folder
+elif [ -d "/Applications/FFmpeg.app" ]; then
+    FFMPEG_PATH="/Applications/FFmpeg.app/Contents/Resources"
+    echo -e "${BLUE}FFmpeg found in Applications at: ${FFMPEG_PATH}${NC}"
+elif [ -f "/Applications/ffmpeg" ]; then
+    FFMPEG_PATH="/Applications"
+    echo -e "${BLUE}FFmpeg found directly in Applications at: ${FFMPEG_PATH}${NC}"
+else
+    echo -e "${RED}Error: FFmpeg not found in any expected location${NC}"
+    exit 1
+fi
 
 # Create lib directory in app bundle
 APP_NAME="MetadataGenerator"

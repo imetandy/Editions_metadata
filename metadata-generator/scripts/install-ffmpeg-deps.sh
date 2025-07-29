@@ -46,4 +46,6 @@ fi
 
 echo -e "${GREEN}=== Installation Complete! ===${NC}"
 echo -e "${BLUE}You can now run MetadataGenerator without issues.${NC}"
-echo -e "${YELLOW}If you still have problems, try restarting your terminal.${NC}" 
+echo -e "${YELLOW}If you still have problems, try restarting your terminal.${NC}"
+echo -e "${BLUE}Alternative: You can also download FFmpeg from https://ffmpeg.org/download.html${NC}"
+echo -e "${BLUE}and install it directly in your Applications folder.${NC}" 
