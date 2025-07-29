@@ -4,136 +4,68 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
-
-# Set permissions for the workflow
-permissions:
-  contents: write
-  packages: write
-  issues: write
-  pull-requests: write
-
-env:
-  CARGO_TERM_COLOR: always
 
 jobs:
   build:
-    name: Build for ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            artifact_name: windows-x64
-          - os: macos-14
-            target: x86_64-apple-darwin
-            artifact_name: macos-x64
-          - os: macos-14
-            target: aarch64-apple-darwin
-            artifact_name: macos-arm64
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Build CLI version
-        shell: bash
-        run: |
-          cd metadata-generator
-          cargo build --release --features cli --target ${{ matrix.target }}
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            cp target/${{ matrix.target }}/release/cli.exe ../cli-${{ matrix.artifact_name }}.exe
-          else
-            cp target/${{ matrix.target }}/release/cli ../cli-${{ matrix.artifact_name }}
-          fi
-
-      - name: Build GUI version
-        shell: bash
-        run: |
-          cd metadata-generator
-          cargo build --release --features gui --target ${{ matrix.target }}
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            cp target/${{ matrix.target }}/release/MetadataGenerator.exe ../MetadataGenerator-${{ matrix.artifact_name }}.exe
-          else
-            cp target/${{ matrix.target }}/release/MetadataGenerator ../MetadataGenerator-${{ matrix.artifact_name }}
-          fi
-
-      - name: Create release artifacts
-        shell: bash
-        run: |
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            echo "Creating Windows artifacts..."
-            mkdir -p release
-            cp cli-${{ matrix.artifact_name }}.exe release/
-            cp MetadataGenerator-${{ matrix.artifact_name }}.exe release/
-            cd release
-            7z a -tzip MetadataGenerator-${{ matrix.artifact_name }}.zip *.exe
-          else
-            echo "Creating macOS artifacts..."
-            mkdir -p release
-            cp cli-${{ matrix.artifact_name }} release/
-            cp MetadataGenerator-${{ matrix.artifact_name }} release/
-            cd release
-            zip -r MetadataGenerator-${{ matrix.artifact_name }}.zip *
-          fi
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: MetadataGenerator-${{ matrix.artifact_name }}
-          path: release/
-
-  create-release:
-    name: Create Release
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
     
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Set release tag for manual runs
-        if: github.event_name == 'workflow_dispatch'
-        shell: bash
-        run: |
-          # Get version from Cargo.toml
-          VERSION=$(grep '^version = ' metadata-generator/Cargo.toml | cut -d'"' -f2)
-          echo "RELEASE_TAG=v$VERSION" >> $GITHUB_ENV
-          echo "Using version: $VERSION"
-
-      - name: Create release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.RELEASE_TAG || github.ref_name }}
-          target_commitish: master
-          files: |
-            artifacts/MetadataGenerator-windows-x64/MetadataGenerator-windows-x64.zip
-            artifacts/MetadataGenerator-macos-x64/MetadataGenerator-macos-x64.zip
-            artifacts/MetadataGenerator-macos-arm64/MetadataGenerator-macos-arm64.zip
-          generate_release_notes: true
-          draft: false
-          prerelease: false
-          token: ${{ secrets.GITHUB_TOKEN }} 
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        
+    - name: Install dependencies
+      run: |
+        brew install create-dmg
+        brew install imagemagick
+        
+    - name: Build DMG Installer
+      run: |
+        cd metadata-generator
+        chmod +x scripts/*.sh
+        ./scripts/create-dmg-installer.sh
+        
+    - name: Create zip backup
+      run: |
+        cd metadata-generator
+        ./scripts/build-app.sh
+        zip -r MetadataGenerator-macOS.zip MetadataGenerator.app
+        
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          metadata-generator/MetadataGenerator-Installer.dmg
+          metadata-generator/MetadataGenerator-macOS.zip
+        body: |
+          ## MetadataGenerator ${{ github.ref_name }}
+          
+          ### 🎉 What's New
+          - Professional DMG installer with custom icon
+          - Drag-and-drop installation experience
+          - Optimized for macOS 10.15+
+          
+          ### 📦 Installation
+          1. Download the DMG installer
+          2. Double-click to mount
+          3. Drag to Applications folder
+          4. Launch from Applications
+          
+          ### 🖥️ System Requirements
+          - macOS 10.15 (Catalina) or later
+          - No additional dependencies required
+          
+          ### 🔧 For Developers
+          - Built with Rust and egui
+          - Source code available in this repository
+          - CLI version also included
+          
+          ### 📝 Release Notes
+          This release includes a professional DMG installer with custom branding and improved user experience.
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
