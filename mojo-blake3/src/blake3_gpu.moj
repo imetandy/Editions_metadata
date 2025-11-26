@@ -1,0 +1,67 @@
+// Sketch of a deterministic GPU-backed BLAKE3 implementation in Mojo.
+// This file is intentionally non-executable until Mojo exposes stable Metal kernels on macOS.
+// The focus is on code structure and points where determinism matters.
+
+// Constants mirror the official BLAKE3 spec.
+let CHUNK_SIZE: Int = 1024
+let OUT_LEN: Int = 32
+let IV: StaticVector[UInt32, 8] = StaticVector[UInt32, 8](
+    0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A,
+    0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19
+)
+
+struct ChunkInput:
+    var data: Vector[UInt8]
+    var counter: UInt64
+
+// A device-friendly view of the BLAKE3 block compression step.
+@inline
+fn compress_block(msg: inout StaticVector[UInt32, 16],
+                 chaining_value: StaticVector[UInt32, 8],
+                 counter: UInt64,
+                 block_len: UInt32,
+                 flags: UInt32) -> StaticVector[UInt32, 16]:
+    // TODO: fill with real BLAKE3 round function once GPU intrinsics are ready.
+    // Keep the signature stable to swap in GPU/CPU paths.
+    return StaticVector[UInt32, 16]()
+
+// GPU kernel for hashing one chunk per thread.
+@kernel
+fn hash_chunks(chunks: Pointer[ChunkInput],
+               chunk_count: Int,
+               out_hashes: Pointer[StaticVector[UInt8, OUT_LEN]]):
+    let idx = grid_index_1d()
+    if idx >= chunk_count:
+        return
+
+    // Deterministic: each thread handles exactly one chunk, so ordering is fixed.
+    var input = chunks[idx]
+    var block = StaticVector[UInt32, 16]()
+    // TODO: load message words and call compress_block.
+
+    // Stub: write zeroed hash to make the kernel shape explicit.
+    out_hashes[idx] = StaticVector[UInt8, OUT_LEN]()
+
+// GPU kernel for pairwise reduction of child hashes into parent hashes.
+@kernel
+fn reduce_level(children: Pointer[StaticVector[UInt8, OUT_LEN]],
+                child_count: Int,
+                parents: Pointer[StaticVector[UInt8, OUT_LEN]]):
+    let idx = grid_index_1d()
+    let parent_idx = idx * 2
+    if parent_idx + 1 >= child_count:
+        return  // odd hash count: caller carries the last child forward.
+
+    var left = children[parent_idx]
+    var right = children[parent_idx + 1]
+
+    // TODO: invoke compress_block on concatenated child hashes to produce parent.
+    parents[idx] = left  // placeholder until full compression is wired.
+
+// CPU-visible entry point to keep orchestration separate from kernels.
+fn hash_file_on_gpu(chunks: List[ChunkInput]) -> List[StaticVector[UInt8, OUT_LEN]]:
+    // TODO: upload `chunks` to device buffers and launch `hash_chunks` followed by `reduce_level` until one hash remains.
+    // Determinism notes:
+    //  - grid sizing is derived from chunk count, so launch parameters are repeatable.
+    //  - reductions process pairs in lexical order; odd leaves are carried untouched.
+    return []

@@ -1,0 +1,22 @@
+// Host-side scaffolding for streaming a large file through the GPU BLAKE3 kernels.
+// Intended for Apple Silicon where Mojo can target Metal.
+// See `src/metal_cpp/metal_blake3_example.cpp` for a C++ reference pipeline using Metal-cpp.
+
+fn read_file_in_chunks(path: String) -> List[ChunkInput]:
+    // TODO: replace with real buffered I/O once available in Mojo.
+    // The function signature encodes deterministic chunk counters for Merkle tree ordering.
+    return []
+
+fn hash_path(path: String) -> StaticVector[UInt8, OUT_LEN]:
+    let chunks = read_file_in_chunks(path)
+    let level_hashes = hash_file_on_gpu(chunks)
+
+    // When hash_file_on_gpu returns multiple hashes (e.g., due to odd chunk counts), fold on CPU
+    // to preserve deterministic ordering until GPU reductions are fully implemented.
+    if level_hashes.size == 0:
+        return StaticVector[UInt8, OUT_LEN]()
+    if level_hashes.size == 1:
+        return level_hashes[0]
+
+    // TODO: call a CPU-side BLAKE3 Merkle reduction for the last few levels as a stopgap.
+    return level_hashes[0]
